@@ -12,13 +12,14 @@ function where(
     fn(
     User $user,
     Access $access
-  )  =>
-    $user->email === $email &&
-    $user->ID === $access->userID && (
-      $user->password === "qazwsx" || (
-        $user->name === "emerson"
+  )  => (
+      $user->email === $email &&
+      $user->ID === $access->userID && (
+        $user->password === "qazwsx" || (
+          $user->name === "emerson"
+        )
       )
-    )
+    )    
   );
 }
 
