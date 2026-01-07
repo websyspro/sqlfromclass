@@ -15,13 +15,12 @@ function where(
 
 function ParseSQL(
 ): FnBody {
-  $where = where( function(
-      User $user,
-      Access $access
-    ) {
-      return $user->email === "cpd.emersontsa@gmail.com" &&
-      $user->ID === $access->userID;
-    }
+  $where = where( fn(
+    User $user,
+    Access $access
+  ) => 
+    $user->email === "cpd.emersontsa@gmail.com" &&
+    $user->ID === $access->userID
   );
 
   return $where;

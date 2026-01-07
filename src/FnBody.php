@@ -3,12 +3,13 @@
 namespace Websyspro\SqlFromClass;
 
 use ReflectionFunction;
+use Websyspro\Commons\Collection;
 
 class FnBody
 {
   public function __construct(
     public ReflectionFunction $reflectionFunction,
-    public array $paramters,
+    public Collection $paramters,
     public string $body
   ){}
 }
