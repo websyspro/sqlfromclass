@@ -1,0 +1,59 @@
+{
+    "_readme": [
+        "This file locks the dependencies of your project to a known state",
+        "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
+        "This file is @generated automatically"
+    ],
+    "content-hash": "a0b2bc38d763376c400b570794b987b5",
+    "packages": [
+        {
+            "name": "websyspro/commons",
+            "version": "dev-main",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/websyspro/commons.git",
+                "reference": "8b210ac9a30c6773a8db77f958c2d6412234ba75"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/websyspro/commons/zipball/8b210ac9a30c6773a8db77f958c2d6412234ba75",
+                "reference": "8b210ac9a30c6773a8db77f958c2d6412234ba75",
+                "shasum": ""
+            },
+            "default-branch": true,
+            "type": "library",
+            "autoload": {
+                "psr-4": {
+                    "Websyspro\\Commons\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "websyspro",
+                    "email": "websyspro.services@gmail.com"
+                }
+            ],
+            "description": "Generic utility helpers for PHP components (arrays, files, strings, types, and identifiers).",
+            "support": {
+                "issues": "https://github.com/websyspro/commons/issues",
+                "source": "https://github.com/websyspro/commons/tree/main"
+            },
+            "time": "2026-01-07T18:00:04+00:00"
+        }
+    ],
+    "packages-dev": [],
+    "aliases": [],
+    "minimum-stability": "dev",
+    "stability-flags": {
+        "websyspro/commons": 20
+    },
+    "prefer-stable": true,
+    "prefer-lowest": false,
+    "platform": {},
+    "platform-dev": {},
+    "plugin-api-version": "2.9.0"
+}

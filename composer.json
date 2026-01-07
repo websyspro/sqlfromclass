@@ -1,0 +1,26 @@
+{
+  "name": "websyspro/sqlfromclass",
+  "description": "A Composer library for building, composing, and executing SQL queries using object-oriented, class-based structures.",
+  "minimum-stability": "dev",
+  "prefer-stable": true,
+  "license": "MIT",
+  "type": "library",
+  "autoload": {
+    "psr-4": {
+      "Websyspro\\SqlFromClass\\": "src/",
+      "Websyspro\\Test\\": "test/"
+    }   
+  },
+  "scripts": {
+    "upgit": "git add . && git commit -m \"Update components\" && git push origin HEAD"
+  },
+  "authors": [
+    {
+      "name": "websyspro",
+      "email": "websyspro.services@gmail.com"
+    }
+  ],
+  "require": {
+    "websyspro/commons": "dev-main"
+  }
+}
