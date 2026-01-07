@@ -42,7 +42,7 @@ class Shareds
     );
   }
 
-  private static function toToken(
+  private static function convertToken(
     string $token
   ): Token {
     if(Util::match("#(=|==|===)#", $token)){
@@ -74,7 +74,8 @@ class Shareds
     string $token
   ): TokenList {
     return new TokenList(
-      Shareds::toToken( $token ), $token
+      Shareds::convertToken( $token ), 
+      $token
     );
   }
 
