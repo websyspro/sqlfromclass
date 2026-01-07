@@ -6,8 +6,14 @@ use ReflectionFunction;
 use ReflectionParameter;
 use Websyspro\Commons\Collection;
 
+/**
+ * Classe utilitária para conversão de arrow functions em objetos FnBody
+ */
 class Shareds
 {
+  /**
+   * Extrai parâmetros de uma arrow function
+   */
   private static function createParametersFromArrowFn(
     ReflectionFunction $reflectionFunction
   ): Collection {
@@ -23,6 +29,9 @@ class Shareds
     );
   }
 
+  /**
+   * Extrai variáveis estáticas de uma arrow function
+   */
   private static function createStaticFromArrowFn(
     ReflectionFunction $reflectionFunction
   ): Collection {
@@ -31,6 +40,9 @@ class Shareds
     );
   }
 
+  /**
+   * Extrai o corpo de uma arrow function do código fonte
+   */
   private static function createBodyFromArrowFn(
     ReflectionFunction $reflectionFunction
   ): string {
@@ -50,6 +62,9 @@ class Shareds
     return trim($sourceString);
   }
 
+  /**
+   * Converte uma arrow function em objeto FnBody
+   */
   public static function arrowFnToString(
     callable $arrowFnToString
   ): FnBody {
