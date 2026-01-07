@@ -23,6 +23,14 @@ class Shareds
     );
   }
 
+  private static function createStaticFromArrowFn(
+    ReflectionFunction $reflectionFunction
+  ): Collection {
+    return new Collection(
+      $reflectionFunction->getStaticVariables()
+    );
+  }
+
   private static function createBodyFromArrowFn(
     ReflectionFunction $reflectionFunction
   ): string {
@@ -52,6 +60,7 @@ class Shareds
     return new FnBody(
       $reflectionFunction,
       Shareds::createParametersFromArrowFn( $reflectionFunction ),
+      Shareds::createStaticFromArrowFn( $reflectionFunction ),
       Shareds::createBodyFromArrowFn( $reflectionFunction )
     );
   }

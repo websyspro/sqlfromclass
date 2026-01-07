@@ -6,24 +6,22 @@ use Websyspro\Test\Access;
 use Websyspro\Test\User;
 
 function where(
-  callable $fn
+  string $email
 ): FnBody {
   return Shareds::arrowFnToString(
-    $fn
-  );
-}
-
-function ParseSQL(
-): FnBody {
-  $where = where( fn(
+    fn(
     User $user,
     Access $access
-  ) => 
-    $user->email === "cpd.emersontsa@gmail.com" &&
-    $user->ID === $access->userID
+  )  =>
+    $user->email === $email &&
+    $user->ID === $access->userID && (
+      $user->password === "qazwsx" || (
+        $user->name === "emerson"
+      )
+    )
   );
-
-  return $where;
 }
 
-print_r(ParseSQL());
+print_r(
+  where( "cpd.emersontsa@gmail.com" )
+);
