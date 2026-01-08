@@ -95,11 +95,6 @@ class Shareds
       file( $reflectionFunction->getFileName())
     );
 
-    print_r($sourceArrowFN->slice(
-        $reflectionFunction->getStartLine() - 1,
-        $reflectionFunction->getEndLine() - $reflectionFunction->getStartLine() + 1
-      )->toString());
-
     $sourceString = preg_replace(
       [
         "#\r#",
@@ -117,6 +112,8 @@ class Shareds
         "#\|\|#",
         "#(!==|!=)#",
         "#(===|==|=)#",
+        "#true#",
+        "#false#"
       ], 
       [
         "",     // "#\r#"
@@ -133,7 +130,9 @@ class Shareds
         "And",  // "#&&#"
         "Or",   // "#\|\|#"
         "<>",   // "#(!==|!=)#" 
-        "="     // "#^(===|==|=)$#"
+        "=",    // "#^(===|==|=)$#",
+        "1",    // "#true#"
+        "0"     // "#false#" 
       ],  
       $sourceArrowFN->slice(
         $reflectionFunction->getStartLine() - 1,
