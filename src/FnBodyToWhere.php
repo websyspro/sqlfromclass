@@ -5,7 +5,7 @@ namespace Websyspro\SqlFromClass;
 use ReflectionFunction;
 use Websyspro\Commons\Collection;
 
-class FnBody
+class FnBodyToWhere
 {
   public function __construct(
     public ReflectionFunction $reflectionFunction,

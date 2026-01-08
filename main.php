@@ -1,6 +1,6 @@
 <?php
 
-use Websyspro\SqlFromClass\FnBody;
+use Websyspro\SqlFromClass\FnBodyToWhere;
 use Websyspro\SqlFromClass\Shareds;
 use Websyspro\Test\Access;
 use Websyspro\Test\User;
@@ -12,7 +12,7 @@ enum Role {
 
 function where(
   string $email
-): FnBody {
+): FnBodyToWhere {
   $arrowFnToTokens = Shareds::arrowFnToTokens(fn(
     User $user,
     Access $access
@@ -22,7 +22,7 @@ function where(
           $user->password === "qazwsx" || (
             $user->name === [ 'emerson', "thiago" ] &&
             $user->role !== Role::Admin->name &&
-            $user->actived === true
+            $user->actived === !true
           )
       )
     )
