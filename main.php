@@ -2,13 +2,9 @@
 
 use Websyspro\SqlFromClass\FnBodyToWhere;
 use Websyspro\SqlFromClass\Shareds;
+use Websyspro\Test\Enums\Role;
 use Websyspro\Test\Access;
 use Websyspro\Test\User;
-
-enum Role {
-  case Admin;
-  case User;
-}
 
 function where(
   string $email
@@ -21,7 +17,7 @@ function where(
         $user->ID === $access->userID && (
           $user->password === "qazwsx" || (
             $user->name === [ 'emerson', "thiago" ] &&
-            $user->role !== Role::Admin->name &&
+            $user->role !== Role::User &&
             $user->actived === !true
           )
       )
@@ -32,3 +28,4 @@ function where(
 }
 
 where( "cpd.emersontsa@gmail.com" );
+//print_r(eval('Role::Admin'));

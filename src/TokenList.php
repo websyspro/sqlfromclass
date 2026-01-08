@@ -3,6 +3,7 @@
 namespace Websyspro\SqlFromClass;
 
 use Websyspro\Commons\Collection;
+use Websyspro\SqlFromClass\Enums\EntityPriority;
 use Websyspro\SqlFromClass\Enums\Token;
 
 class TokenList
@@ -12,6 +13,6 @@ class TokenList
     public string|Collection $value,
     public string|null $entity = null,
     public string|null $entityName = null,
-    public bool|null $entityIsPrimary = false
+    public EntityPriority|null $entityPriority = null
   ){}
 }

@@ -42,6 +42,26 @@ class Shareds
     );
   }
 
+  private static function createUsesFromArrowFn(
+    ReflectionFunction $reflectionFunction
+  ): Collection {
+    $fileLines = new Collection(
+      file( $reflectionFunction->getFileName())
+    );
+
+    $fileUses = $fileLines->where(
+      fn(string $text) => preg_match(
+        "#^use\s*#", $text
+      ) === 1
+    );
+
+    return $fileUses->mapper( 
+      fn(string $useClass) => (
+        new UseClass($useClass)
+      )
+    );
+  }
+
   /**
    * Converts a string token into its corresponding Token enum type
    */
@@ -163,6 +183,7 @@ class Shareds
       $reflectionFunction,
       Shareds::createParametersFromArrowFn( $reflectionFunction ),
       Shareds::createStaticFromArrowFn( $reflectionFunction ),
+      Shareds::createUsesFromArrowFn( $reflectionFunction ),
       Shareds::createBodyFromArrowFn( $reflectionFunction )
     );
   }

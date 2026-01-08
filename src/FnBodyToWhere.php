@@ -3,8 +3,10 @@
 namespace Websyspro\SqlFromClass;
 
 use ReflectionFunction;
+use UnitEnum;
 use Websyspro\Commons\Collection;
 use Websyspro\Commons\Util;
+use Websyspro\SqlFromClass\Enums\EntityPriority;
 use Websyspro\SqlFromClass\Enums\Token;
 
 /**
@@ -24,23 +26,51 @@ class FnBodyToWhere
     public ReflectionFunction $reflectionFunction,
     public Collection $paramters,
     public Collection $statics,
+    public Collection $uses,
     public Collection $body
   ){
     /* Process entity definitions and priorities */
     $this->defineEntityAndPriority();
-    print_r($this);
+    $this->defineFieldEntity();
+    $this->defineFieldEnums();
+    
+    print_r($this->body->mapper(fn(TokenList $tokenList) => $tokenList->value)->joinWithSpace());
+    
+    //print_r($this->body);
+  }
+
+  private function useClass(
+    string $class
+  ): UseClass {
+    return $this->uses->find(
+      fn(UseClass $useClass) => $useClass->isClass($class) 
+    );
   }
 
   /**
-   * Checks if an entity is primary by searching for it in the function parameters
+   * Determines the priority level of an entity based on function parameters
+   * @param string $entity The entity to check priority for
+   * @return EntityPriority Returns Primary if entity matches first parameter, otherwise Secondary
    */
   private function entityPrimary(
     string $entity
-  ): bool {
-    /* Search through parameters to find if entity exists as a parameter */
-    return $this->paramters->find( fn( FnParameter $fnParameter ) => (
-      $fnParameter->entity === $entity
-    )) !== null;
+  ): EntityPriority {
+    /* Return secondary priority if no parameters exist */
+    if($this->paramters->exist() === false){
+      return EntityPriority::Secundary;
+    }
+
+    /* Get the first parameter from the collection */
+    $parameterFirst = $this->paramters->first();
+    if($parameterFirst instanceof FnParameter){
+      /* Compare entity with first parameter's entity to determine priority */
+      return $parameterFirst->entity === $entity 
+        ? EntityPriority::Primary 
+        : EntityPriority::Secundary;
+    }
+
+    /* Default to secondary priority if parameter validation fails */
+    return EntityPriority::Secundary;
   }
 
   /**
@@ -75,11 +105,70 @@ class FnBodyToWhere
           /* Convert entity class to readable name format */
           $tokenList->entityName = $this->entityName( $tokenList->entity );
           /* Check if this entity is marked as primary */
-          $tokenList->entityIsPrimary = $this->entityPrimary( $tokenList->entity );
+          $tokenList->entityPriority = $this->entityPrimary( $tokenList->entity );
         }
 
+        /* return tokenList */
         return $tokenList;
       }
     );
   }
+
+  /**
+   * Transforms field entity tokens by replacing parameter references with entity names
+   * Converts tokens like "$parameter->field" to "EntityName.field" format
+   */
+  private function defineFieldEntity(
+  ): void {
+    /* Map through body tokens to transform field entity references */
+    $this->body = $this->body->mapper(
+      function( TokenList $tokenList ) {
+        /* Process only field entity tokens */
+        if( $tokenList->taken === Token::FieldEntity ){
+          /* Replace parameter reference with entity name using regex pattern */
+          $tokenList->value = preg_replace(
+            "#^\\$.*->#",
+            "{$tokenList->entityName}.", 
+            $tokenList->value
+          );
+        }
+
+        /* Return the processed token */
+        return $tokenList;
+      }
+    );
+  }
+
+  /**
+   * Processa tokens de enum values, convertendo referências de enum para seus valores
+   * Transforma tokens como "EnumClass::VALUE" para o nome do valor do enum
+   */
+  private function defineFieldEnums(
+  ): void {
+    $this->body = $this->body->mapper(
+      function( TokenList $tokenList ) {
+        /* Processa apenas tokens de enum value */
+        if( $tokenList->taken === Token::EnumValue ){
+          /* Divide a string do enum em classe e item usando :: como separador */
+          [ $unitEnum, $unitEnumItem ] = preg_split( 
+            "#::#", $tokenList->value, -1, PREG_SPLIT_NO_EMPTY 
+          );
+
+          /* Encontra a classe de use correspondente ao enum */
+          $useClass = $this->useClass( $unitEnum );
+          /* Obtém a constante do enum usando o namespace completo */
+          $unitEnum = constant( $useClass->fullClassFromUnitEnum(
+            $unitEnumItem
+          ));
+
+          /* Se for uma instância válida de UnitEnum, substitui pelo nome do valor */
+          if( $unitEnum instanceof UnitEnum ){
+            $tokenList->value = $unitEnum->value ?? $unitEnum->name;
+          }
+        }
+
+        return $tokenList;
+      }
+    );    
+  } 
 }
