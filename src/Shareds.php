@@ -42,10 +42,13 @@ class Shareds
     );
   }
 
+  /**
+   * Converts a string token into its corresponding Token enum type
+   */
   private static function convertToken(
     string $token
   ): Token {
-    if(Util::match("#(=|==|===)#", $token)){
+    if(Util::match("#(=|==|===|<>!=|!==|>=|<=)#", $token)){
       return Token::Compare;
     } else
     if(Util::match("#^\\$.*->.*$#", $token)){
@@ -106,8 +109,32 @@ class Shareds
         "#^.*(fn|function)\s*\(#",
         "#\s*\);\s*$#",
         "#^.*?\)\s*=>\s*#s",
+        "#\\[\s*#s",
+        "#\s*\\]#s",
+        "#,\s*#s",
+        "#\"#",
+        "#&&#",
+        "#\|\|#",
+        "#(!==|!=)#",
+        "#(===|==|=)#",
       ], 
-      [ "", " ", "", "", "fn(", "", "" ],  
+      [
+        "",     // "#\r#"
+        " ",    // "#\n\s*#"
+        "",     // "#^.*\\{.*return\s*#"
+        "",     // "#\s*;\s*\\}\s*#"
+        "fn(",  // "#^.*(fn|function)\s*\(#"
+        "",     // "#\s*\);\s*$#"
+        "",     // "#^.*?\)\s*=>\s*#s"
+        "(",    // "#\\[\s*#"
+        ")",    // "#\s*\\]#"
+        ",",    // "#,\s*#s"]
+        "'",    // "#\"#"
+        "And",  // "#&&#"
+        "Or",   // "#\|\|#"
+        "<>",   // "#(!==|!=)#" 
+        "="     // "#^(===|==|=)$#"
+      ],  
       $sourceArrowFN->slice(
         $reflectionFunction->getStartLine() - 1,
         $reflectionFunction->getEndLine() - $reflectionFunction->getStartLine() + 1

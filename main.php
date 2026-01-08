@@ -21,8 +21,8 @@ function where(
       $user->email === $email &&
         $user->ID === $access->userID && (
           $user->password === "qazwsx" || (
-            $user->name === 'emerson' &&
-            $user->role === Role::Admin->name
+            $user->name === [ 'emerson', "thiago" ] &&
+            $user->role !== Role::Admin->name
           )
       )
     )
