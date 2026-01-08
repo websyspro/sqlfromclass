@@ -23,7 +23,7 @@ class FnBodyToWhere
   public function __construct(
     public ReflectionFunction $reflectionFunction,
     public Collection $paramters,
-    public Collection $static,
+    public Collection $statics,
     public Collection $body
   ){
     /* Process entity definitions and priorities */
@@ -34,7 +34,7 @@ class FnBodyToWhere
   /**
    * Checks if an entity is primary by searching for it in the function parameters
    */
-  private function rntityPrimary(
+  private function entityPrimary(
     string $entity
   ): bool {
     /* Search through parameters to find if entity exists as a parameter */
@@ -75,7 +75,7 @@ class FnBodyToWhere
           /* Convert entity class to readable name format */
           $tokenList->entityName = $this->entityName( $tokenList->entity );
           /* Check if this entity is marked as primary */
-          $tokenList->entityIsPrimary = $this->rntityPrimary( $tokenList->entity );
+          $tokenList->entityIsPrimary = $this->entityPrimary( $tokenList->entity );
         }
 
         return $tokenList;
