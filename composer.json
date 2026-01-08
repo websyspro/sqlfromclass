@@ -12,7 +12,7 @@
     }   
   },
   "scripts": {
-    "upgit": "git add . && git commit -m \"Update components\" && git push origin HEAD"
+    "up": "git add . && git commit -m \"Update components\" && git push origin HEAD"
   },
   "authors": [
     {
