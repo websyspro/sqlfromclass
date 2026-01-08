@@ -5,6 +5,11 @@ use Websyspro\SqlFromClass\Shareds;
 use Websyspro\Test\Access;
 use Websyspro\Test\User;
 
+enum Role {
+  case Admin;
+  case User;
+}
+
 function where(
   string $email
 ): FnBody {
@@ -12,14 +17,15 @@ function where(
     fn(
     User $user,
     Access $access
-  )  => (
+  ) => (
       $user->email === $email &&
-      $user->ID === $access->userID && (
-        $user->password === "qazwsx" || (
-          $user->name === "emerson"
-        )
+        $user->ID === $access->userID && (
+          $user->password === "qazwsx" || (
+            $user->name === 'emerson' &&
+            $user->role === Role::Admin->name
+          )
       )
-    )    
+    )
   );
 }
 

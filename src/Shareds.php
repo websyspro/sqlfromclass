@@ -54,11 +54,14 @@ class Shareds
     if(Util::match("#^\\$.*$#", $token)){
       return Token::FieldStatic;
     } else
-    if(Util::match("#^\".*\"$#", $token)){
+    if(Util::match("#^(\"|').*(\"|')$#", $token)){
       return Token::FieldValue;
     } else
     if(Util::match( "#(&&|\|\||and|or)#", $token)){
       return Token::Logical;
+    }else
+    if(Util::match( "#^[a-zA-Z]{1}.*::.*(->(?:name|value))?$#", $token )){
+      return Token::EnumValue;
     } else
     if(Util::match( "#\(#", $token )){
       return Token::StartParent;
@@ -89,9 +92,22 @@ class Shareds
       file( $reflectionFunction->getFileName())
     );
 
+    print_r($sourceArrowFN->slice(
+        $reflectionFunction->getStartLine() - 1,
+        $reflectionFunction->getEndLine() - $reflectionFunction->getStartLine() + 1
+      )->toString());
+
     $sourceString = preg_replace(
-      [ "#^.*(fn|function)\s*\(#", "#\s*\);\s*$#", "#^.*?\)\s*=>\s*#s", "#\r#", "#\n\s*#" ], 
-      [ "fn(", "", "", "", " " ],  
+      [
+        "#\r#",
+        "#\n\s*#",
+        "#^.*\\{.*return\s*#",
+        "#\s*;\s*\\}\s*#",
+        "#^.*(fn|function)\s*\(#",
+        "#\s*\);\s*$#",
+        "#^.*?\)\s*=>\s*#s",
+      ], 
+      [ "", " ", "", "", "fn(", "", "" ],  
       $sourceArrowFN->slice(
         $reflectionFunction->getStartLine() - 1,
         $reflectionFunction->getEndLine() - $reflectionFunction->getStartLine() + 1
