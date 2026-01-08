@@ -80,7 +80,7 @@ class Shareds
     string $token
   ): TokenList {
     return new TokenList(
-      Shareds::convertToken( $token ), 
+      Shareds::convertToken( $token ),
       $token
     );
   }

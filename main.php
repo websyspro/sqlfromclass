@@ -31,6 +31,4 @@ function where(
   return $arrowFnToTokens;
 }
 
-print_r(
-  where( "cpd.emersontsa@gmail.com" )
-);
+where( "cpd.emersontsa@gmail.com" );
