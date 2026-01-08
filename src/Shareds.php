@@ -66,10 +66,10 @@ class Shareds
     if(Util::match( "#^[a-zA-Z]{1}.*::.*(->(?:name|value))?$#", $token )){
       return Token::EnumValue;
     } else
-    if(Util::match( "#^\([^.*]$#", $token )){
+    if(Util::match( "#^(\)|(\([^.*])$#", $token )){
       return Token::StartParent;
     } else 
-    if(Util::match( "#^[^.*]\)$#", $token )){
+    if(Util::match( "#(^\)$)|([^.*]\)$)#", $token )){
       return Token::EndParent;
     }
 
