@@ -13,8 +13,7 @@ enum Role {
 function where(
   string $email
 ): FnBody {
-  return Shareds::arrowFnToString(
-    fn(
+  $arrowFnToTokens = Shareds::arrowFnToTokens(fn(
     User $user,
     Access $access
   ) => (
@@ -28,6 +27,8 @@ function where(
       )
     )
   );
+
+  return $arrowFnToTokens;
 }
 
 print_r(

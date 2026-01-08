@@ -12,7 +12,8 @@
     }   
   },
   "scripts": {
-    "up": "git add . && git commit -m \"Update components\" && git push origin HEAD"
+    "up": "git add . && git commit -m \"Update components\" && git push origin HEAD",
+    "down": "git pull origin main"
   },
   "authors": [
     {

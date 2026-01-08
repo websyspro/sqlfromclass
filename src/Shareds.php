@@ -48,7 +48,7 @@ class Shareds
   private static function convertToken(
     string $token
   ): Token {
-    if(Util::match("#(=|==|===|<>!=|!==|>=|<=)#", $token)){
+    if(Util::match("#(=|==|===|<>|!=|!==|>=|<=)#", $token)){
       return Token::Compare;
     } else
     if(Util::match("#^\\$.*->.*$#", $token)){
@@ -60,20 +60,20 @@ class Shareds
     if(Util::match("#^(\"|').*(\"|')$#", $token)){
       return Token::FieldValue;
     } else
-    if(Util::match( "#(&&|\|\||and|or)#", $token)){
+    if(Util::match( "#(&&|\|\||And|Or)#", $token)){
       return Token::Logical;
     }else
     if(Util::match( "#^[a-zA-Z]{1}.*::.*(->(?:name|value))?$#", $token )){
       return Token::EnumValue;
     } else
-    if(Util::match( "#\(#", $token )){
+    if(Util::match( "#^\([^.*]$#", $token )){
       return Token::StartParent;
     } else 
-    if(Util::match( "#\)#", $token )){
+    if(Util::match( "#^[^.*]\)$#", $token )){
       return Token::EndParent;
     }
 
-    return Token::Empty;
+    return Token::FieldValue;
   }
 
   private static function tokenParse(
@@ -152,7 +152,7 @@ class Shareds
   /**
    * Converte uma arrow function em objeto FnBody
    */
-  public static function arrowFnToString(
+  public static function arrowFnToTokens(
     callable $arrowFnToString
   ): FnBody {
     $reflectionFunction = new ReflectionFunction(
