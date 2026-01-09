@@ -2,6 +2,8 @@
 
 namespace Websyspro\SqlFromClass;
 
+use BackedEnum;
+use Exception;
 use ReflectionFunction;
 use UnitEnum;
 use Websyspro\Commons\Collection;
@@ -42,6 +44,14 @@ class FnBodyToWhere
   private function useClass(
     string $class
   ): UseClass {
+    if( Util::match( "#^.*\\\.*$#", $class )){
+      $classPaths = new Collection(
+        preg_split("#\\\#", $class, -1, PREG_SPLIT_NO_EMPTY)
+      );
+
+      $class = $classPaths->last();
+    }
+
     return $this->uses->find(
       fn(UseClass $useClass) => $useClass->isClass($class) 
     );
@@ -150,20 +160,30 @@ class FnBodyToWhere
         /* Processa apenas tokens de enum value */
         if( $tokenList->taken === Token::EnumValue ){
           /* Divide a string do enum em classe e item usando :: como separador */
-          [ $unitEnum, $unitEnumItem ] = preg_split( 
-            "#::#", $tokenList->value, -1, PREG_SPLIT_NO_EMPTY 
-          );
+          if( preg_match( "#->#", $tokenList->value ) === 0){
+            [ $unitEnum, $unitEnumItem ] = preg_split( 
+              "#(::)#", $tokenList->value, -1, PREG_SPLIT_NO_EMPTY 
+            );
+          } else {
+            [ $unitEnum, $unitEnumItem, $unitEnumMethod ] = preg_split( 
+              "#(::)|(->)#", $tokenList->value, -1, PREG_SPLIT_NO_EMPTY 
+            );
+          }
 
           /* Encontra a classe de use correspondente ao enum */
           $useClass = $this->useClass( $unitEnum );
           /* Obtém a constante do enum usando o namespace completo */
-          $unitEnum = constant( $useClass->fullClassFromUnitEnum(
-            $unitEnumItem
-          ));
-
+          $unitEnum = constant( $useClass->fullClassFromUnitEnum( $unitEnumItem ));
+          
           /* Se for uma instância válida de UnitEnum, substitui pelo nome do valor */
           if( $unitEnum instanceof UnitEnum ){
-            $tokenList->value = $unitEnum->value ?? $unitEnum->name;
+            if( $unitEnum instanceof BackedEnum ){
+              if( $unitEnumMethod !== null ){
+                $tokenList->value = $unitEnum->{$unitEnumMethod};
+              }
+            } else {
+              $tokenList->value = $unitEnum->name;
+            }
           }
         }
 
