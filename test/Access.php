@@ -6,4 +6,5 @@ class Access
 {
   public string $userID;
   public string $password;
+  public string $teste_;
 }
