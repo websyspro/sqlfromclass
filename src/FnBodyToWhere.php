@@ -3,7 +3,6 @@
 namespace Websyspro\SqlFromClass;
 
 use BackedEnum;
-use Exception;
 use ReflectionFunction;
 use UnitEnum;
 use Websyspro\Commons\Collection;
@@ -35,10 +34,11 @@ class FnBodyToWhere
     $this->defineEntityAndPriority();
     $this->defineFieldEntity();
     $this->defineFieldEnums();
+    $this->defineFieldStatics();
     
-    print_r($this->body->mapper(fn(TokenList $tokenList) => $tokenList->value)->joinWithSpace());
+    //print_r($this->body->mapper(fn(TokenList $tokenList) => $tokenList->value)->joinWithSpace());
     
-    //print_r($this->body);
+    //print_r( $this->body );
   }
 
   private function useClass(
@@ -46,7 +46,12 @@ class FnBodyToWhere
   ): UseClass {
     if( Util::match( "#^.*\\\.*$#", $class )){
       $classPaths = new Collection(
-        preg_split("#\\\#", $class, -1, PREG_SPLIT_NO_EMPTY)
+        preg_split(
+          "#\\\#",
+          $class, 
+          -1, 
+          PREG_SPLIT_NO_EMPTY
+        )
       );
 
       $class = $classPaths->last();
@@ -190,5 +195,44 @@ class FnBodyToWhere
         return $tokenList;
       }
     );    
-  } 
+  }
+
+  public function parseFromStatics(
+    string $value
+  ): string {
+    var_dump($value);
+
+    $this->statics->mapper(
+      function(
+        string $staticValue,
+        string $staticKey
+      ) use(&$value){
+        $value = preg_replace(
+          "#\\\${$staticKey}#",
+          $staticValue,
+          $value
+        );
+      }
+    );
+
+    var_dump($value);
+    return $value;
+  }
+
+  public function defineFieldStatics(
+  ): void {
+    $this->body = $this->body->mapper(
+      function( TokenList $tokenList ) {
+        if( $tokenList->taken === Token::FieldStatic ){
+          // $tokenList->value = $this->parseFromStatics( 
+          //   $tokenList->value
+          // );
+
+          print_r($tokenList);
+        }
+
+        return $tokenList;
+      }
+    );
+  }
 }

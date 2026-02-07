@@ -71,10 +71,10 @@ class Shareds
     if(Util::match("#(=|==|===|<>|!=|!==|>=|<=)#", $token)){
       return Token::Compare;
     } else
-    if(Util::match("#^\\$.*->.*$#", $token)){
+    if(Util::match("#^\\\$.*->.*$#", $token)){
       return Token::FieldEntity;
     } else
-    if(Util::match("#^\\$.*$#", $token)){
+    if(Util::match("#\\\$(\{[a-zA-Z_][a-zA-Z0-9_]*\}|[a-zA-Z_][a-zA-Z0-9_]*)#", $token)){
       return Token::FieldStatic;
     } else
     if(Util::match("#^(\"|').*(\"|')$#", $token)){
@@ -127,7 +127,7 @@ class Shareds
         "#\\[\s*#s",
         "#\s*\\]#s",
         "#,\s*#s",
-        "#\"#",
+        "#\"#s",
         "#&&#",
         "#\|\|#",
         "#(!==|!=)#",

@@ -12,12 +12,12 @@
             "source": {
                 "type": "git",
                 "url": "https://github.com/websyspro/commons.git",
-                "reference": "04c965318bd252a2f11ba7e8ea43d3b887b57053"
+                "reference": "a74adb057bc5e3fcc7d8134fd274beb64f5a8ad6"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/websyspro/commons/zipball/04c965318bd252a2f11ba7e8ea43d3b887b57053",
-                "reference": "04c965318bd252a2f11ba7e8ea43d3b887b57053",
+                "url": "https://api.github.com/repos/websyspro/commons/zipball/a74adb057bc5e3fcc7d8134fd274beb64f5a8ad6",
+                "reference": "a74adb057bc5e3fcc7d8134fd274beb64f5a8ad6",
                 "shasum": ""
             },
             "default-branch": true,
@@ -42,7 +42,7 @@
                 "issues": "https://github.com/websyspro/commons/issues",
                 "source": "https://github.com/websyspro/commons/tree/main"
             },
-            "time": "2026-01-10T00:44:50+00:00"
+            "time": "2026-01-17T21:48:23+00:00"
         },
         {
             "name": "websyspro/devtools",
@@ -50,21 +50,23 @@
             "source": {
                 "type": "git",
                 "url": "https://github.com/websyspro/dev-tools.git",
-                "reference": "a8feeb8ddcb84e96cc465693e9521a563d8b035a"
+                "reference": "d4be6d2fa75a2556e821f3d97f9fc0eb779d0107"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/websyspro/dev-tools/zipball/a8feeb8ddcb84e96cc465693e9521a563d8b035a",
-                "reference": "a8feeb8ddcb84e96cc465693e9521a563d8b035a",
+                "url": "https://api.github.com/repos/websyspro/dev-tools/zipball/d4be6d2fa75a2556e821f3d97f9fc0eb779d0107",
+                "reference": "d4be6d2fa75a2556e821f3d97f9fc0eb779d0107",
                 "shasum": ""
             },
             "require": {
                 "php": ">=8.1",
-                "websyspro/commons": "dev-main"
+                "websyspro/commons": "dev-main",
+                "websyspro/elements": "dev-main"
             },
             "default-branch": true,
             "bin": [
-                "bin/watch"
+                "bin/watch",
+                "bin/reload"
             ],
             "type": "library",
             "autoload": {
@@ -87,7 +89,49 @@
                 "issues": "https://github.com/websyspro/dev-tools/issues",
                 "source": "https://github.com/websyspro/dev-tools/tree/main"
             },
-            "time": "2026-01-10T03:08:30+00:00"
+            "time": "2026-01-23T23:55:03+00:00"
+        },
+        {
+            "name": "websyspro/elements",
+            "version": "dev-main",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/websyspro/elements.git",
+                "reference": "2afa86c163d9b33f9e185bebfbf30d53acc2c63a"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/websyspro/elements/zipball/2afa86c163d9b33f9e185bebfbf30d53acc2c63a",
+                "reference": "2afa86c163d9b33f9e185bebfbf30d53acc2c63a",
+                "shasum": ""
+            },
+            "require": {
+                "websyspro/commons": "dev-main",
+                "websyspro/devtools": "dev-main"
+            },
+            "default-branch": true,
+            "type": "library",
+            "autoload": {
+                "psr-4": {
+                    "Websyspro\\Elements\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "websyspro",
+                    "email": "websyspro.services@gmail.com"
+                }
+            ],
+            "description": "PHP library for dynamic DOM element creation with support for attributes, nesting and HTML rendering",
+            "support": {
+                "issues": "https://github.com/websyspro/elements/issues",
+                "source": "https://github.com/websyspro/elements/tree/main"
+            },
+            "time": "2026-02-02T17:00:09+00:00"
         }
     ],
     "packages-dev": [],

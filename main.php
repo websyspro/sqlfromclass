@@ -13,10 +13,10 @@ function where(
     User $user,
     Access $access
   ) => (
-      $user->email === $email &&
+      $user->email === "Meu: $email" &&
         $user->ID === $access->userID && (
           $user->password === "qazwsx" || (
-            $user->name === [ 'emerson', "thiago" ] &&
+            $user->name === [ 'emerson-sousa', "thiago" ] &&
             $user->role !== Role::Admin &&
             $user->actived === !true
           )
@@ -27,5 +27,5 @@ function where(
   return $arrowFnToTokens;
 }
 
-where( "cpd.emersontsa@gmail.com" );
-//print_r(eval('Role::Admin'));
+print_r(where( "cpd.emersontsa@gmail.com sdfasdfd" ));
+
