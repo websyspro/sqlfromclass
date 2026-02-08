@@ -77,7 +77,7 @@ class Shareds
     if(Util::match("#\\\$(\{[a-zA-Z_][a-zA-Z0-9_]*\}|[a-zA-Z_][a-zA-Z0-9_]*)#", $token)){
       return Token::FieldStatic;
     } else
-    if(Util::match("#^(\"|').*(\"|')$#", $token)){
+    if(Util::match("#^(\\\"|').*(\\\"|')$#", $token)){
       return Token::FieldValue;
     } else
     if(Util::match( "#(&&|\|\||And|Or)#", $token)){
@@ -101,6 +101,7 @@ class Shareds
   ): TokenList {
     return new TokenList(
       Shareds::convertToken( $token ),
+      true,
       $token
     );
   }
@@ -160,13 +161,25 @@ class Shareds
       )->toString()
     );
 
-    $sourceCollection = new Collection(
-      preg_split( "#\s#",  $sourceString)
+    preg_match_all(
+       "#'[^']*'|\"[^\"]*\"|\\S+#",
+      $sourceString,
+      $sourceCollectionTokens
     );
-    
-    return $sourceCollection->mapper(
-      fn( string $token): TokenList => Shareds::tokenParse( $token )
-    );
+
+    if( Util::sizeArray($sourceCollectionTokens) === 1 ){
+      [ $sourceCollections ] = $sourceCollectionTokens;
+
+      $sourceCollection = new Collection( 
+        $sourceCollections
+      );
+
+      return $sourceCollection->mapper(
+        fn( string $token): TokenList => Shareds::tokenParse( $token )
+      );      
+    }
+  
+    return new Collection();
   }
 
   /**

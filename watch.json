@@ -1,6 +1,7 @@
 {
   "directories": [
-    "src"
+    "src",
+    "test"
   ],
   "reload": {
     "port": 3001

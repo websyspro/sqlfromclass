@@ -2,13 +2,13 @@
 
 namespace Websyspro\SqlFromClass;
 
-use BackedEnum;
-use ReflectionFunction;
-use UnitEnum;
-use Websyspro\Commons\Collection;
-use Websyspro\Commons\Util;
 use Websyspro\SqlFromClass\Enums\EntityPriority;
 use Websyspro\SqlFromClass\Enums\Token;
+use Websyspro\Commons\Collection;
+use Websyspro\Commons\Util;
+use ReflectionFunction;
+use BackedEnum;
+use UnitEnum;
 
 /**
  * Converts function body tokens to WHERE clause conditions by analyzing
@@ -33,12 +33,12 @@ class FnBodyToWhere
     /* Process entity definitions and priorities */
     $this->defineEntityAndPriority();
     $this->defineFieldEntity();
+    $this->defineFieldValue();
     $this->defineFieldEnums();
     $this->defineFieldStatics();
     
     //print_r($this->body->mapper(fn(TokenList $tokenList) => $tokenList->value)->joinWithSpace());
-    
-    //print_r( $this->body );
+    print_r( $this->body );
   }
 
   private function useClass(
@@ -146,12 +146,61 @@ class FnBodyToWhere
             "{$tokenList->entityName}.", 
             $tokenList->value
           );
+
+          $tokenListCollection =  new Collection(
+            preg_split( 
+              "#\.#", 
+              $tokenList->value,
+              -1, 
+              PREG_SPLIT_NO_EMPTY
+            )
+          );
+
+          $tokenList->entityField = $tokenListCollection->last();
         }
 
         /* Return the processed token */
         return $tokenList;
       }
     );
+  }
+
+  private function defineFieldValue(
+  ): void {
+    $this->body = $this->body->mapper(
+      function( TokenList $tokenList, int $i ) {
+        if( $tokenList->taken === Token::FieldValue ){
+          if( $this->body->eq( $i - 1 )->exist() ){
+            $tokenListPrev = $this->body->eq( $i - 1 )->first();
+            if( $tokenListPrev->taken === Token::Compare ){
+              $tokenListComparePrev = $this->body->eq( $i - 2 )->first();
+
+              if( $tokenListComparePrev instanceof TokenList ){
+                $tokenList->entity = $tokenListComparePrev->entity;
+                $tokenList->entityName = $tokenListComparePrev->entityName;
+                $tokenList->entityField = $tokenListComparePrev->entityField; 
+                $tokenList->entityPriority = $tokenListComparePrev->entityPriority;
+              }
+            }
+          } else
+          if( $this->body->eq( $i + 1 )->exist() ){
+            $tokenListNext = $this->body->eq( $i + 1 )->first();
+            if( $tokenListNext->taken === Token::Compare ){
+              $tokenListCompareNext = $this->body->eq( $i + 2 )->first();
+
+              if( $tokenListCompareNext instanceof TokenList ){
+                $tokenList->entity = $tokenListCompareNext->entity;
+                $tokenList->entityName = $tokenListCompareNext->entityName;
+                $tokenList->entityField = $tokenListCompareNext->entityField;
+                $tokenList->entityPriority = $tokenListCompareNext->entityPriority;
+              }
+            }
+          }
+        }
+
+        return $tokenList;
+      }
+    );    
   }
 
   /**
@@ -200,8 +249,6 @@ class FnBodyToWhere
   public function parseFromStatics(
     string $value
   ): string {
-    var_dump($value);
-
     $this->statics->mapper(
       function(
         string $staticValue,
@@ -215,7 +262,6 @@ class FnBodyToWhere
       }
     );
 
-    var_dump($value);
     return $value;
   }
 
@@ -224,11 +270,9 @@ class FnBodyToWhere
     $this->body = $this->body->mapper(
       function( TokenList $tokenList ) {
         if( $tokenList->taken === Token::FieldStatic ){
-          // $tokenList->value = $this->parseFromStatics( 
-          //   $tokenList->value
-          // );
-
-          print_r($tokenList);
+          $tokenList->value = $this->parseFromStatics( 
+            $tokenList->value
+          );
         }
 
         return $tokenList;
