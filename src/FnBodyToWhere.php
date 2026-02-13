@@ -36,9 +36,11 @@ class FnBodyToWhere
     $this->defineFieldValue();
     $this->defineFieldEnums();
     $this->defineFieldStatics();
+    $this->defineFieldSides();
+    $this->defineFieldComparesGroup();
     
-    //print_r($this->body->mapper(fn(TokenList $tokenList) => $tokenList->value)->joinWithSpace());
-    print_r( $this->body );
+    print_r($this->body->mapper(fn(TokenList $tokenList) => $tokenList->value)->joinWithSpace());
+    //print_r( $this->body );
   }
 
   private function useClass(
@@ -165,6 +167,35 @@ class FnBodyToWhere
     );
   }
 
+  private function fieldIsEntity(
+    TokenList|null $tokenList
+  ): bool {
+    return isset( $tokenList ) && $tokenList->taken === Token::FieldEntity;
+  }  
+
+  private function fieldIsCompare(
+    TokenList|null $tokenList
+  ): bool {
+    return isset( $tokenList ) && $tokenList->taken === Token::Compare;
+  }
+
+  private function fieldCompareInvert(
+    TokenList $tokenList
+  ): TokenList {
+    $tokenList->value = match( $tokenList->value ){
+      ">=" => "<=", "<=" => ">=", ">" => "<", "<" => ">",
+      default => $tokenList->value
+    };
+
+    return $tokenList;
+  }
+
+  private function fieldIsValue(
+    TokenList|null $tokenList
+  ): bool {
+    return isset( $tokenList ) && $tokenList->taken === Token::FieldValue;
+  }  
+
   private function defineFieldValue(
   ): void {
     $this->body = $this->body->mapper(
@@ -278,5 +309,63 @@ class FnBodyToWhere
         return $tokenList;
       }
     );
+  }
+
+  public function defineFieldSides(
+  ): void {
+    $items = $this->body->all();
+    for( $i = 0; $i < $this->body->count(); $i++ ){
+      $hasFieldValue = $this->fieldIsValue( $items[ $i ]);
+      $hasFieldCompare = $this->fieldIsCompare( $items[ $i + 1 ] ?? null);
+      $hasFieldEntity = $this->fieldIsEntity( $items[ $i + 2 ] ?? null); 
+
+      if( $hasFieldValue && $hasFieldCompare && $hasFieldEntity ){
+        [ $items[ $i ], $items[ $i + 1 ], $items[ $i + 2 ]] = [
+          $items[$i + 2], $this->fieldCompareInvert( $items[$i + 1] ), $items[$i]
+        ];
+      }
+    }
+    
+    $this->body = new Collection($items);
+  }
+
+  public function defineFieldComparesGroup(
+  ): void {
+    $items = $this->body->all();
+    
+    for($i = 0; $i < count($items); $i++){
+      if(!$this->fieldIsEntity($items[$i])) continue;
+
+      $currentField = $items[ $i ]->value;
+      
+      for($j = $i + 3; $j < count($items); $j++){
+        if($this->fieldIsEntity( $items[ $j ]) && $items[$j]->value === $currentField ){
+          $logicalPos = $j - 1;
+          $hasLogical = isset($items[ $logicalPos ]) && $items[ $logicalPos ]->taken === Token::Logical;
+          
+          $startPos = $hasLogical ? $logicalPos : $j;
+          $length = $hasLogical ? 4 : 3;
+          
+          $comparison = array_splice(
+            $items,
+            $startPos,
+            $length
+          );
+
+          $insertPos = $i + 3;
+          
+          array_splice( 
+            $items,
+            $insertPos,
+            0, 
+            $comparison
+          );
+
+          break;
+        }
+      }
+    }
+    
+    $this->body = new Collection($items);
   }
 }

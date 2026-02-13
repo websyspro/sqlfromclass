@@ -22,10 +22,10 @@ function where(
             $user->actived === !true &&
             $access->createdAt >= "01/10/2015"
           )
-      ) && $access->createdAt <= "25/10/2015"
+      ) &&  "25/10/2015" >= $access->createdAt
     )
   );
 }
 
-$where = where( "cpd.emersontsa@gmail.com" );
+$where = where( "cpd.emersontsa.123@gmail.com" );
 // print_r( $where );
