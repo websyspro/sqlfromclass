@@ -167,21 +167,39 @@ class FnBodyToWhere
     );
   }
 
+  /**
+   * Checks if a token is a field entity type
+   * @param TokenList|null $tokenList The token to check
+   * @return bool Returns true if token is a FieldEntity, false otherwise
+   */
   private function fieldIsEntity(
     TokenList|null $tokenList
   ): bool {
+    /* Check if token exists and is a FieldEntity type */
     return isset( $tokenList ) && $tokenList->taken === Token::FieldEntity;
   }  
 
+  /**
+   * Checks if a token is a comparison operator
+   * @param TokenList|null $tokenList The token to check
+   * @return bool Returns true if token is a Compare operator, false otherwise
+   */
   private function fieldIsCompare(
     TokenList|null $tokenList
   ): bool {
+    /* Check if token exists and is a Compare operator type */
     return isset( $tokenList ) && $tokenList->taken === Token::Compare;
   }
 
+  /**
+   * Inverts comparison operators for reversed field comparisons
+   * @param TokenList $tokenList The token containing the comparison operator
+   * @return TokenList Returns the token with inverted operator (>= becomes <=, > becomes <, etc)
+   */
   private function fieldCompareInvert(
     TokenList $tokenList
   ): TokenList {
+    /* Invert comparison operator using match expression */
     $tokenList->value = match( $tokenList->value ){
       ">=" => "<=", "<=" => ">=", ">" => "<", "<" => ">",
       default => $tokenList->value
@@ -190,22 +208,37 @@ class FnBodyToWhere
     return $tokenList;
   }
 
+  /**
+   * Checks if a token is a field value type
+   * @param TokenList|null $tokenList The token to check
+   * @return bool Returns true if token is a FieldValue, false otherwise
+   */
   private function fieldIsValue(
     TokenList|null $tokenList
   ): bool {
+    /* Check if token exists and is a FieldValue type */
     return isset( $tokenList ) && $tokenList->taken === Token::FieldValue;
   }  
 
+  /**
+   * Assigns entity metadata to field value tokens based on adjacent comparison tokens
+   * Copies entity information from the related field entity to the value token
+   */
   private function defineFieldValue(
   ): void {
+    /* Map through body tokens to assign entity metadata to field values */
     $this->body = $this->body->mapper(
       function( TokenList $tokenList, int $i ) {
+        /* Process only field value tokens */
         if( $tokenList->taken === Token::FieldValue ){
+          /* Check if previous token exists (Value after Entity pattern) */
           if( $this->body->eq( $i - 1 )->exist() ){
             $tokenListPrev = $this->body->eq( $i - 1 )->first();
+            /* Verify previous token is a comparison operator */
             if( $tokenListPrev->taken === Token::Compare ){
               $tokenListComparePrev = $this->body->eq( $i - 2 )->first();
 
+              /* Copy entity metadata from the field entity to this value */
               if( $tokenListComparePrev instanceof TokenList ){
                 $tokenList->entity = $tokenListComparePrev->entity;
                 $tokenList->entityName = $tokenListComparePrev->entityName;
@@ -214,11 +247,14 @@ class FnBodyToWhere
               }
             }
           } else
+          /* Check if next token exists (Value before Entity pattern) */
           if( $this->body->eq( $i + 1 )->exist() ){
             $tokenListNext = $this->body->eq( $i + 1 )->first();
+            /* Verify next token is a comparison operator */
             if( $tokenListNext->taken === Token::Compare ){
               $tokenListCompareNext = $this->body->eq( $i + 2 )->first();
 
+              /* Copy entity metadata from the field entity to this value */
               if( $tokenListCompareNext instanceof TokenList ){
                 $tokenList->entity = $tokenListCompareNext->entity;
                 $tokenList->entityName = $tokenListCompareNext->entityName;
@@ -277,14 +313,21 @@ class FnBodyToWhere
     );    
   }
 
+  /**
+   * Parses static variable references in field values
+   * @param string $value The value containing static variable references
+   * @return string Returns the value with static variables replaced by their actual values
+   */
   public function parseFromStatics(
     string $value
   ): string {
+    /* Map through static variables collection to replace references */
     $this->statics->mapper(
       function(
         string $staticValue,
         string $staticKey
       ) use(&$value){
+        /* Replace static variable reference with its actual value */
         $value = preg_replace(
           "#\\\${$staticKey}#",
           $staticValue,
@@ -296,11 +339,18 @@ class FnBodyToWhere
     return $value;
   }
 
+  /**
+   * Processes field static tokens by replacing static variable references with their values
+   * Transforms tokens containing static variables into their resolved string values
+   */
   public function defineFieldStatics(
   ): void {
+    /* Map through body tokens to process static field values */
     $this->body = $this->body->mapper(
       function( TokenList $tokenList ) {
+        /* Process only field static tokens */
         if( $tokenList->taken === Token::FieldStatic ){
+          /* Parse and replace static variable references */
           $tokenList->value = $this->parseFromStatics( 
             $tokenList->value
           );
@@ -311,14 +361,23 @@ class FnBodyToWhere
     );
   }
 
+  /**
+   * Normalizes comparison order by ensuring field entities are always on the left side
+   * Transforms "Value Compare Entity" patterns to "Entity Compare Value" and inverts operators
+   */
   public function defineFieldSides(
   ): void {
+    /* Get all items from body collection */
     $items = $this->body->all();
+    
+    /* Iterate through items to find reversed comparison patterns */
     for( $i = 0; $i < $this->body->count(); $i++ ){
+      /* Check if current position matches Value-Compare-Entity pattern */
       $hasFieldValue = $this->fieldIsValue( $items[ $i ]);
       $hasFieldCompare = $this->fieldIsCompare( $items[ $i + 1 ] ?? null);
       $hasFieldEntity = $this->fieldIsEntity( $items[ $i + 2 ] ?? null); 
 
+      /* Swap positions and invert operator when pattern is found */
       if( $hasFieldValue && $hasFieldCompare && $hasFieldEntity ){
         [ $items[ $i ], $items[ $i + 1 ], $items[ $i + 2 ]] = [
           $items[$i + 2], $this->fieldCompareInvert( $items[$i + 1] ), $items[$i]
@@ -326,32 +385,47 @@ class FnBodyToWhere
       }
     }
     
+    /* Rebuild body collection with normalized items */
     $this->body = new Collection($items);
   }
 
+  /**
+   * Groups comparisons of the same field together for optimization
+   * Moves duplicate field comparisons to be adjacent, facilitating pattern detection like BETWEEN
+   */
   public function defineFieldComparesGroup(
   ): void {
+    /* Get all items from body collection */
     $items = $this->body->all();
     
+    /* Iterate through items to find duplicate field comparisons */
     for($i = 0; $i < count($items); $i++){
+      /* Skip non-entity tokens */
       if(!$this->fieldIsEntity($items[$i])) continue;
 
+      /* Store current field name for comparison */
       $currentField = $items[ $i ]->value;
       
+      /* Search for duplicate field comparisons ahead */
       for($j = $i + 3; $j < count($items); $j++){
+        /* Check if found token is same field entity */
         if($this->fieldIsEntity( $items[ $j ]) && $items[$j]->value === $currentField ){
+          /* Check if there's a logical operator before the comparison */
           $logicalPos = $j - 1;
-          $hasLogical = isset($items[ $logicalPos ]) && $items[ $logicalPos ]->taken === Token::Logical;
+          $hasLogical = isset( $items[ $logicalPos ]) && $items[ $logicalPos ]->taken === Token::Logical;
           
+          /* Determine extraction position and length based on logical operator presence */
           $startPos = $hasLogical ? $logicalPos : $j;
           $length = $hasLogical ? 4 : 3;
           
+          /* Extract the comparison block (with or without logical operator) */
           $comparison = array_splice(
             $items,
             $startPos,
             $length
           );
 
+          /* Insert comparison block right after the first occurrence */
           $insertPos = $i + 3;
           
           array_splice( 
@@ -366,6 +440,7 @@ class FnBodyToWhere
       }
     }
     
+    /* Rebuild body collection with grouped comparisons */
     $this->body = new Collection($items);
   }
 }
