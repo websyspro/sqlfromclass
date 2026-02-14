@@ -1,31 +1,26 @@
 <?php
 
+use Dom\DocumentType;
 use Websyspro\SqlFromClass\FnBodyToWhere;
 use Websyspro\SqlFromClass\Shareds;
 use Websyspro\Test\Enums\Role;
 use Websyspro\Test\Access;
+use Websyspro\Test\Entitys\BoxEntity;
+use Websyspro\Test\Entitys\DocumentEntity;
 use Websyspro\Test\User;
 
 function where(
-  string $email
+  int $boxId
 ): FnBodyToWhere {
   return Shareds::arrowFnToTokens(
     fn(
-      User $user,
-      Access $access
+      BoxEntity $box,
+      DocumentEntity $document
     ) => (
-      $user->email === "Meu: $email" &&
-        $user->ID === $access->userID && (
-          $user->password === "qazwsx" Or (
-            $user->name !== [ 'emerson-sousa', "thiago" ] &&
-            $user->role !== Role::Admin &&
-            $user->actived === !true &&
-            $access->createdAt >= "01/10/2015"
-          )
-      ) &&  "25/10/2015" >= $access->createdAt
+      $box->Id === $boxId
     )
   );
 }
 
-$where = where( "cpd.emersontsa.123@gmail.com" );
+$where = where( 6 );
 // print_r( $where );
