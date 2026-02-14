@@ -1,13 +1,10 @@
 <?php
 
-use Dom\DocumentType;
 use Websyspro\SqlFromClass\FnBodyToWhere;
 use Websyspro\SqlFromClass\Shareds;
-use Websyspro\Test\Enums\Role;
-use Websyspro\Test\Access;
 use Websyspro\Test\Entitys\BoxEntity;
 use Websyspro\Test\Entitys\DocumentEntity;
-use Websyspro\Test\User;
+use Websyspro\Test\Enums\BoxState;
 
 function where(
   int $boxId
@@ -17,7 +14,11 @@ function where(
       BoxEntity $box,
       DocumentEntity $document
     ) => (
-      $box->Id === $boxId
+      $box->Id === $boxId && 
+      $box->CreatedAt >= '02/02/2026' &&
+      $box->State === BoxState::Close->value &&
+      '14/02/2026' >= $box->CreatedAt &&
+      $document->BoxId === $box->Id 
     )
   );
 }

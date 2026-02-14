@@ -9,6 +9,7 @@ use Websyspro\Commons\Util;
 use ReflectionFunction;
 use BackedEnum;
 use UnitEnum;
+use Websyspro\Entity\Enums\ColumnType;
 
 /**
  * Converts function body tokens to WHERE clause conditions by analyzing
@@ -33,14 +34,19 @@ class FnBodyToWhere
     /* Process entity definitions and priorities */
     $this->defineEntityAndPriority();
     $this->defineFieldEntity();
-    $this->defineFieldValue();
     $this->defineFieldEnums();
     $this->defineFieldStatics();
     $this->defineFieldSides();
     $this->defineFieldComparesGroup();
+    $this->defineFieldPropsValue();
+    $this->defineFieldParseValue();
+    $this->defineFieldCompacter();
     
-    print_r($this->body->mapper(fn(TokenList $tokenList) => $tokenList->value)->joinWithSpace());
-    //print_r( $this->body );
+    // print_r($this->body->mapper(
+    //     fn(TokenList $tokenList) => $tokenList->value
+    //   )->joinWithSpace()
+    // );
+    print_r( $this->paramters );
   }
 
   private function useClass(
@@ -177,6 +183,15 @@ class FnBodyToWhere
   ): bool {
     /* Check if token exists and is a FieldEntity type */
     return isset( $tokenList ) && $tokenList->taken === Token::FieldEntity;
+  }
+
+  private function fieldIsEntityIsPriority(
+    TokenList|null $tokenList
+  ): bool {
+    /* Check if token exists and is a FieldEntity type */
+    return isset( $tokenList ) 
+        && $tokenList->taken === Token::FieldEntity 
+        && $tokenList->entityPriority === EntityPriority::Primary;
   }  
 
   /**
@@ -190,6 +205,13 @@ class FnBodyToWhere
     /* Check if token exists and is a Compare operator type */
     return isset( $tokenList ) && $tokenList->taken === Token::Compare;
   }
+
+  private function fieldIsLogical(
+    TokenList|null $tokenList
+  ): bool {
+    /* Check if token exists and is a Compare operator type */
+    return isset( $tokenList ) && $tokenList->taken === Token::Logical;
+  }  
 
   /**
    * Inverts comparison operators for reversed field comparisons
@@ -224,13 +246,13 @@ class FnBodyToWhere
    * Assigns entity metadata to field value tokens based on adjacent comparison tokens
    * Copies entity information from the related field entity to the value token
    */
-  private function defineFieldValue(
+  private function defineFieldPropsValue(
   ): void {
     /* Map through body tokens to assign entity metadata to field values */
     $this->body = $this->body->mapper(
       function( TokenList $tokenList, int $i ) {
         /* Process only field value tokens */
-        if( $tokenList->taken === Token::FieldValue ){
+        if( $tokenList->taken === Token::FieldValue || $tokenList->taken === Token::EnumValue ){
           /* Check if previous token exists (Value after Entity pattern) */
           if( $this->body->eq( $i - 1 )->exist() ){
             $tokenListPrev = $this->body->eq( $i - 1 )->first();
@@ -367,25 +389,41 @@ class FnBodyToWhere
    */
   public function defineFieldSides(
   ): void {
-    /* Get all items from body collection */
     $items = $this->body->all();
-    
-    /* Iterate through items to find reversed comparison patterns */
-    for( $i = 0; $i < $this->body->count(); $i++ ){
-      /* Check if current position matches Value-Compare-Entity pattern */
-      $hasFieldValue = $this->fieldIsValue( $items[ $i ]);
-      $hasFieldCompare = $this->fieldIsCompare( $items[ $i + 1 ] ?? null);
-      $hasFieldEntity = $this->fieldIsEntity( $items[ $i + 2 ] ?? null); 
+    $count = Util::sizeArray( $items);
 
-      /* Swap positions and invert operator when pattern is found */
-      if( $hasFieldValue && $hasFieldCompare && $hasFieldEntity ){
-        [ $items[ $i ], $items[ $i + 1 ], $items[ $i + 2 ]] = [
-          $items[$i + 2], $this->fieldCompareInvert( $items[$i + 1] ), $items[$i]
-        ];
+    for( $i = 0; $i < $count - 2; $i++ ){
+      $left   = $items[ $i ];
+      $center = $items[ $i + 1 ];
+      $right  = $items[ $i + 2 ];
+
+      if (!$this->fieldIsCompare($center)) {
+        continue;
+      }
+
+      $shouldSwap = false;
+
+      // Regra 1: Valor vs Entidade (Sempre mover entidade para esquerda)
+      if( $this->fieldIsValue( $left ) && $this->fieldIsEntity( $right )){
+        $shouldSwap = true;
+      } 
+      // Regra 2: Entidade vs Entidade (Mover Primary para esquerda se o outro for Secundary)
+      elseif ($this->fieldIsEntity( $left ) && $this->fieldIsEntity( $right )) {
+        if( $this->fieldIsEntityIsPriority( $right ) && $this->fieldIsEntityIsPriority( $left ) === false){
+          $shouldSwap = true;
+        }
+      }
+
+      if ($shouldSwap) {
+        $items[$i] = $right;
+        $items[$i + 1] = $this->fieldCompareInvert($center);
+        $items[$i + 2] = $left;
+        
+        // Salta o operador e o operando já ajustados para evitar re-análise
+        $i += 2; 
       }
     }
-    
-    /* Rebuild body collection with normalized items */
+
     $this->body = new Collection($items);
   }
 
@@ -393,54 +431,167 @@ class FnBodyToWhere
    * Groups comparisons of the same field together for optimization
    * Moves duplicate field comparisons to be adjacent, facilitating pattern detection like BETWEEN
    */
-  public function defineFieldComparesGroup(
+  public function defineFieldComparesGroup(  
   ): void {
-    /* Get all items from body collection */
     $items = $this->body->all();
-    
-    /* Iterate through items to find duplicate field comparisons */
-    for($i = 0; $i < count($items); $i++){
-      /* Skip non-entity tokens */
-      if(!$this->fieldIsEntity($items[$i])) continue;
+    $count = $this->body->count();
 
-      /* Store current field name for comparison */
-      $currentField = $items[ $i ]->value;
-      
-      /* Search for duplicate field comparisons ahead */
-      for($j = $i + 3; $j < Util::sizeArray( $items ); $j++){
-        /* Check if found token is same field entity */
-        if($this->fieldIsEntity( $items[ $j ]) && $items[$j]->value === $currentField ){
-          /* Check if there's a logical operator before the comparison */
-          $logicalPos = $j - 1;
-          $hasLogical = isset( $items[ $logicalPos ]) && $items[ $logicalPos ]->taken === Token::Logical;
-          
-          /* Determine extraction position and length based on logical operator presence */
-          $startPos = $hasLogical ? $logicalPos : $j;
-          $length = $hasLogical ? 4 : 3;
-          
-          /* Extract the comparison block (with or without logical operator) */
-          $comparison = array_splice(
-            $items,
-            $startPos,
-            $length
+    for( $i = 0; $i < $count; $i++ ){
+      $fieldEntity = $this->fieldIsEntity( 
+        $items[ $i ] ?? null
+      );
+
+      if( $fieldEntity === false ){
+        continue;
+      };
+
+      for( $j = $i + 3; $j < $count; $j++ ){
+        $compareFieldEntity = $this->fieldIsEntity( 
+          $items[ $j ] ?? null
+        );
+
+        $hasFieldsEquals = $compareFieldEntity && (
+          $items[ $i ]->value === $items[ $j ]->value
+        );
+
+        if( $hasFieldsEquals === true ){
+          $hasPrevIsLogical = $this->fieldIsLogical( 
+            $items[ $j - 1 ] ?? null
           );
 
-          /* Insert comparison block right after the first occurrence */
-          $insertPos = $i + 3;
-          
-          array_splice( 
-            $items,
-            $insertPos,
-            0, 
-            $comparison
+          $groupMoved = array_splice(
+            $items, 
+            $hasPrevIsLogical ? $j - 1 : $j, 
+            $hasPrevIsLogical ? 4 : 3
           );
 
-          break;
+          array_splice(
+            $items, 
+            $i + 3, 0, 
+            $groupMoved
+          );
+
+          $i = $i + 2;
         }
       }
     }
+
+    $this->body = new Collection(
+      $items
+    );
+  }
+
+  private function columnsFromEntity(
+    string $entity
+  ): object|null {
+    $columns = $this->paramters->where( 
+      fn( FnParameter $fnParameter ) => (
+        $fnParameter->entity === $entity
+      )
+    );
+
+    return $columns->exist() ? $columns->first() : null;
+  }
+
+  private function defineFieldParseValue(
+  ): void {
+    $this->body->mapper(
+      function( TokenList $tokenList ) {
+        if( $tokenList->taken === Token::FieldValue ){
+          $parameter = $this->columnsFromEntity($tokenList->entity);
+
+          $hasFieldExist = isset( $parameter->columns[ $tokenList->entityField ]);
+          $hasFieldColumnExists = isset( $parameter->columns[ $tokenList->entityField ]->column );
+
+
+          if( $hasFieldExist && $hasFieldColumnExists && $parameter !== null){
+            $columnType = $parameter->columns[
+              $tokenList->entityField
+            ]->column->instance->columnType;
+
+            $tokenList->value = $columnType->Encode($tokenList->value);
+          }
+        }
+
+        return $tokenList;
+      }
+    );
+  }
+
+  private function hasBetween(
+    int $index
+  ): bool {
+    $tokens = $this->body->slice(
+      $index, 7
+    );
+
+    if( $tokens->exist() && $tokens->count() === 7 ){
+      [ $fieldLeft1, $compare1, $_, $logical, 
+        $fieldLeft2, $compare2 
+      ] = $tokens->all();
+
+      $hasFieldsEntitys = $fieldLeft1->taken === Token::FieldEntity 
+                       && $fieldLeft2->taken === Token::FieldEntity;
+
+      if( $hasFieldsEntitys ){
+        $field1Columns = $this->columnsFromEntity( $fieldLeft1->entity );
+        $field2Columns = $this->columnsFromEntity( $fieldLeft2->entity );
+
+        $hasfield1ColumnType = in_array(
+          $field1Columns->columns[ $fieldLeft1->entityField ]->column->instance->columnType, [
+            ColumnType::date, ColumnType::datetime, ColumnType::number
+          ]
+        );
+
+        $hasfield2ColumnType = in_array(
+          $field2Columns->columns[ $fieldLeft2->entityField ]->column->instance->columnType, [
+            ColumnType::date, ColumnType::datetime, ColumnType::number
+          ]
+        );
+
+        $hasComparesInverted = $compare1->value === ">=" 
+                            && $compare2->value === "<=";
+        
+        $hasLogicalAnd = strtolower( 
+          $logical->value 
+        ) === "and";
+
+        return $fieldLeft1->entityName === $fieldLeft2->entityName 
+            && $fieldLeft1->entityField === $fieldLeft2->entityField
+            && $hasComparesInverted
+            && $hasLogicalAnd
+            && $hasfield1ColumnType 
+            && $hasfield2ColumnType;
+      }
+    }
+
+    return false;
+  }
+
+  private function defineFieldCompacter(
+  ): void {
+    $items = $this->body->all();
+    $count = $this->body->count();
+    $newList = new Collection();
     
-    /* Rebuild body collection with grouped comparisons */
-    $this->body = new Collection($items);
+    for( $i = 0; $i < $count; $i++ ){
+      if( $this->hasBetween( $i ) === true ){
+        $newList->add( $items[ $i ]);
+        $newList->add( new TokenList(
+          Token::Logical,
+          true,
+          "Between"
+        ));
+        $newList->add( $items[ $i + 2 ]);
+        $newList->add( $items[ $i + 3 ]);
+        $newList->add( $items[ $i + 6 ]); 
+
+        $i += 6;
+      } else {
+        $newList->add( $items[ $i ] );
+      }
+    }
+
+    $this->body = $newList;
   }
 }

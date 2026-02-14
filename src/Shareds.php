@@ -24,10 +24,15 @@ class Shareds
     );
 
     return $parameters->mapper(
-      fn( ReflectionParameter $reflectionParameter ) => new FnParameter(
-        $reflectionParameter->getName(),
-        $reflectionParameter->getType()
-      )
+      function( ReflectionParameter $reflectionParameter ) {
+        $reflectionParameterType = $reflectionParameter->getType();
+
+        return new FnParameter(
+          $reflectionParameter->getName(),
+          $reflectionParameterType,
+          "{$reflectionParameterType}::getColumns"()
+        );
+      }
     );
   }
 
