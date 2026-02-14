@@ -407,7 +407,7 @@ class FnBodyToWhere
       $currentField = $items[ $i ]->value;
       
       /* Search for duplicate field comparisons ahead */
-      for($j = $i + 3; $j < count($items); $j++){
+      for($j = $i + 3; $j < Util::sizeArray( $items ); $j++){
         /* Check if found token is same field entity */
         if($this->fieldIsEntity( $items[ $j ]) && $items[$j]->value === $currentField ){
           /* Check if there's a logical operator before the comparison */

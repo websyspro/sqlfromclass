@@ -23,6 +23,7 @@
   ],
   "require": {
     "websyspro/commons": "dev-main",
-    "websyspro/devtools": "dev-main"
+    "websyspro/devtools": "dev-main",
+    "websyspro/entity": "dev-main"
   }
 }
