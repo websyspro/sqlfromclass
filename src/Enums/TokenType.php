@@ -2,7 +2,7 @@
 
 namespace Websyspro\SqlFromClass\Enums;
 
-enum Token
+enum TokenType
 {
   case FieldEntity;
   case FieldStatic;

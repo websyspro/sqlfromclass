@@ -6,7 +6,7 @@ use ReflectionFunction;
 use ReflectionParameter;
 use Websyspro\Commons\Collection;
 use Websyspro\Commons\Util;
-use Websyspro\SqlFromClass\Enums\Token;
+use Websyspro\SqlFromClass\Enums\TokenType;
 
 /**
  * Classe utilitária para conversão de arrow functions em objetos FnBody
@@ -72,39 +72,39 @@ class Shareds
    */
   private static function convertToken(
     string $token
-  ): Token {
+  ): TokenType {
     if(Util::match("#(=|==|===|<>|!=|!==|>=|<=)#", $token)){
-      return Token::Compare;
+      return TokenType::Compare;
     } else
     if(Util::match("#^\\\$.*->.*$#", $token)){
-      return Token::FieldEntity;
+      return TokenType::FieldEntity;
     } else
     if(Util::match("#\\\$(\{[a-zA-Z_][a-zA-Z0-9_]*\}|[a-zA-Z_][a-zA-Z0-9_]*)#", $token)){
-      return Token::FieldStatic;
+      return TokenType::FieldStatic;
     } else
     if(Util::match("#^(\\\"|').*(\\\"|')$#", $token)){
-      return Token::FieldValue;
+      return TokenType::FieldValue;
     } else
     if(Util::match( "#(&&|\|\||And|Or)#", $token)){
-      return Token::Logical;
+      return TokenType::Logical;
     }else
     if(Util::match( "#^[a-zA-Z]{1}.*::.*(->(?:name|value))?$#", $token )){
-      return Token::EnumValue;
+      return TokenType::EnumValue;
     } else
     if(Util::match( "#^\($#", $token )){
-      return Token::StartParent;
+      return TokenType::StartParent;
     } else 
     if(Util::match( "#^\)$#", $token )){
-      return Token::EndParent;
+      return TokenType::EndParent;
     }
 
-    return Token::FieldValue;
+    return TokenType::FieldValue;
   }
 
   private static function tokenParse(
     string $token
-  ): TokenList {
-    return new TokenList(
+  ): Token {
+    return new Token(
       Shareds::convertToken( $token ),
       true,
       $token
@@ -180,7 +180,7 @@ class Shareds
       );
 
       return $sourceCollection->mapper(
-        fn( string $token): TokenList => Shareds::tokenParse( $token )
+        fn( string $token): Token => Shareds::tokenParse( $token )
       );      
     }
   

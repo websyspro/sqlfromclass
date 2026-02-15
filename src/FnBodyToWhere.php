@@ -3,13 +3,13 @@
 namespace Websyspro\SqlFromClass;
 
 use Websyspro\SqlFromClass\Enums\EntityPriority;
-use Websyspro\SqlFromClass\Enums\Token;
+use Websyspro\SqlFromClass\Enums\TokenType;
 use Websyspro\Commons\Collection;
+use Websyspro\Entity\Enums\ColumnType;
 use Websyspro\Commons\Util;
 use ReflectionFunction;
 use BackedEnum;
 use UnitEnum;
-use Websyspro\Entity\Enums\ColumnType;
 
 /**
  * Converts function body tokens to WHERE clause conditions by analyzing
@@ -42,11 +42,11 @@ class FnBodyToWhere
     $this->defineFieldParseValue();
     $this->defineFieldCompacter();
     
-    // print_r($this->body->mapper(
-    //     fn(TokenList $tokenList) => $tokenList->value
-    //   )->joinWithSpace()
-    // );
-    print_r( $this->paramters );
+    print_r($this->body->mapper(
+        fn(Token $tokenList) => $tokenList->value
+      )->joinWithSpace()
+    );
+    //print_r( $this->paramters );
   }
 
   private function useClass(
@@ -117,22 +117,22 @@ class FnBodyToWhere
   ): void {
     /* Map through each token in the body collection */
     $this->body = $this->body->mapper(
-      function(TokenList $tokenList) {
+      function( Token $token ) {
         /* Check if current token is a field entity type */
-        if( $tokenList->taken === Token::FieldEntity ) {
+        if( $token->takenType === TokenType::FieldEntity ) {
           /* Extract parameter name by removing $ prefix and -> suffix, then find matching entity */
-          $tokenList->entity = $this->paramters->find( fn( FnParameter $fnParameter ) => (
-            $fnParameter->name === preg_replace( [ "#^\\$#", "#->.*$#" ], "", $tokenList->value )
+          $token->entity = $this->paramters->find( fn( FnParameter $fnParameter ) => (
+            $fnParameter->name === preg_replace( [ "#^\\$#", "#->.*$#" ], "", $token->value )
           ))->entity;
 
           /* Convert entity class to readable name format */
-          $tokenList->entityName = $this->entityName( $tokenList->entity );
+          $token->entityName = $this->entityName( $token->entity );
           /* Check if this entity is marked as primary */
-          $tokenList->entityPriority = $this->entityPrimary( $tokenList->entity );
+          $token->entityPriority = $this->entityPrimary( $token->entity );
         }
 
         /* return tokenList */
-        return $tokenList;
+        return $token;
       }
     );
   }
@@ -145,82 +145,82 @@ class FnBodyToWhere
   ): void {
     /* Map through body tokens to transform field entity references */
     $this->body = $this->body->mapper(
-      function( TokenList $tokenList ) {
+      function( Token $token ) {
         /* Process only field entity tokens */
-        if( $tokenList->taken === Token::FieldEntity ){
+        if( $token->takenType === TokenType::FieldEntity ){
           /* Replace parameter reference with entity name using regex pattern */
-          $tokenList->value = preg_replace(
+          $token->value = preg_replace(
             "#^\\$.*->#",
-            "{$tokenList->entityName}.", 
-            $tokenList->value
+            "{$token->entityName}.", 
+            $token->value
           );
 
-          $tokenListCollection =  new Collection(
+          $newToken = new Collection(
             preg_split( 
               "#\.#", 
-              $tokenList->value,
+              $token->value,
               -1, 
               PREG_SPLIT_NO_EMPTY
             )
           );
 
-          $tokenList->entityField = $tokenListCollection->last();
+          $token->entityField = $newToken->last();
         }
 
         /* Return the processed token */
-        return $tokenList;
+        return $token;
       }
     );
   }
 
   /**
    * Checks if a token is a field entity type
-   * @param TokenList|null $tokenList The token to check
+   * @param Token|null $tokenList The token to check
    * @return bool Returns true if token is a FieldEntity, false otherwise
    */
   private function fieldIsEntity(
-    TokenList|null $tokenList
+    Token|null $token
   ): bool {
     /* Check if token exists and is a FieldEntity type */
-    return isset( $tokenList ) && $tokenList->taken === Token::FieldEntity;
+    return isset( $token ) && $token->takenType === TokenType::FieldEntity;
   }
 
   private function fieldIsEntityIsPriority(
-    TokenList|null $tokenList
+    Token|null $token
   ): bool {
     /* Check if token exists and is a FieldEntity type */
-    return isset( $tokenList ) 
-        && $tokenList->taken === Token::FieldEntity 
-        && $tokenList->entityPriority === EntityPriority::Primary;
+    return isset( $token ) 
+        && $token->takenType === TokenType::FieldEntity 
+        && $token->entityPriority === EntityPriority::Primary;
   }  
 
   /**
    * Checks if a token is a comparison operator
-   * @param TokenList|null $tokenList The token to check
+   * @param Token|null $token The token to check
    * @return bool Returns true if token is a Compare operator, false otherwise
    */
   private function fieldIsCompare(
-    TokenList|null $tokenList
+    Token|null $token
   ): bool {
     /* Check if token exists and is a Compare operator type */
-    return isset( $tokenList ) && $tokenList->taken === Token::Compare;
+    return isset( $token ) && $token->takenType === TokenType::Compare;
   }
 
   private function fieldIsLogical(
-    TokenList|null $tokenList
+    Token|null $token
   ): bool {
     /* Check if token exists and is a Compare operator type */
-    return isset( $tokenList ) && $tokenList->taken === Token::Logical;
+    return isset( $token ) && $token->takenType === TokenType::Logical;
   }  
 
   /**
    * Inverts comparison operators for reversed field comparisons
-   * @param TokenList $tokenList The token containing the comparison operator
-   * @return TokenList Returns the token with inverted operator (>= becomes <=, > becomes <, etc)
+   * @param Token $tokenList The token containing the comparison operator
+   * @return Token Returns the token with inverted operator (>= becomes <=, > becomes <, etc)
    */
   private function fieldCompareInvert(
-    TokenList $tokenList
-  ): TokenList {
+    Token $tokenList
+  ): Token {
     /* Invert comparison operator using match expression */
     $tokenList->value = match( $tokenList->value ){
       ">=" => "<=", "<=" => ">=", ">" => "<", "<" => ">",
@@ -232,14 +232,14 @@ class FnBodyToWhere
 
   /**
    * Checks if a token is a field value type
-   * @param TokenList|null $tokenList The token to check
+   * @param Token|null $tokenList The token to check
    * @return bool Returns true if token is a FieldValue, false otherwise
    */
   private function fieldIsValue(
-    TokenList|null $tokenList
+    Token|null $token
   ): bool {
     /* Check if token exists and is a FieldValue type */
-    return isset( $tokenList ) && $tokenList->taken === Token::FieldValue;
+    return isset( $token ) && $token->takenType === TokenType::FieldValue;
   }  
 
   /**
@@ -250,22 +250,22 @@ class FnBodyToWhere
   ): void {
     /* Map through body tokens to assign entity metadata to field values */
     $this->body = $this->body->mapper(
-      function( TokenList $tokenList, int $i ) {
+      function( Token $token, int $i ) {
         /* Process only field value tokens */
-        if( $tokenList->taken === Token::FieldValue || $tokenList->taken === Token::EnumValue ){
+        if( $token->takenType === TokenType::FieldValue || $token->takenType === TokenType::EnumValue ){
           /* Check if previous token exists (Value after Entity pattern) */
           if( $this->body->eq( $i - 1 )->exist() ){
             $tokenListPrev = $this->body->eq( $i - 1 )->first();
             /* Verify previous token is a comparison operator */
-            if( $tokenListPrev->taken === Token::Compare ){
+            if( $tokenListPrev->takenType === TokenType::Compare ){
               $tokenListComparePrev = $this->body->eq( $i - 2 )->first();
 
               /* Copy entity metadata from the field entity to this value */
-              if( $tokenListComparePrev instanceof TokenList ){
-                $tokenList->entity = $tokenListComparePrev->entity;
-                $tokenList->entityName = $tokenListComparePrev->entityName;
-                $tokenList->entityField = $tokenListComparePrev->entityField; 
-                $tokenList->entityPriority = $tokenListComparePrev->entityPriority;
+              if( $tokenListComparePrev instanceof Token ){
+                $token->entity = $tokenListComparePrev->entity;
+                $token->entityName = $tokenListComparePrev->entityName;
+                $token->entityField = $tokenListComparePrev->entityField; 
+                $token->entityPriority = $tokenListComparePrev->entityPriority;
               }
             }
           } else
@@ -273,21 +273,21 @@ class FnBodyToWhere
           if( $this->body->eq( $i + 1 )->exist() ){
             $tokenListNext = $this->body->eq( $i + 1 )->first();
             /* Verify next token is a comparison operator */
-            if( $tokenListNext->taken === Token::Compare ){
+            if( $tokenListNext->takenType === TokenType::Compare ){
               $tokenListCompareNext = $this->body->eq( $i + 2 )->first();
 
               /* Copy entity metadata from the field entity to this value */
-              if( $tokenListCompareNext instanceof TokenList ){
-                $tokenList->entity = $tokenListCompareNext->entity;
-                $tokenList->entityName = $tokenListCompareNext->entityName;
-                $tokenList->entityField = $tokenListCompareNext->entityField;
-                $tokenList->entityPriority = $tokenListCompareNext->entityPriority;
+              if( $tokenListCompareNext instanceof Token ){
+                $token->entity = $tokenListCompareNext->entity;
+                $token->entityName = $tokenListCompareNext->entityName;
+                $token->entityField = $tokenListCompareNext->entityField;
+                $token->entityPriority = $tokenListCompareNext->entityPriority;
               }
             }
           }
         }
 
-        return $tokenList;
+        return $token;
       }
     );    
   }
@@ -299,17 +299,17 @@ class FnBodyToWhere
   private function defineFieldEnums(
   ): void {
     $this->body = $this->body->mapper(
-      function( TokenList $tokenList ) {
+      function( Token $token ) {
         /* Processa apenas tokens de enum value */
-        if( $tokenList->taken === Token::EnumValue ){
+        if( $token->takenType === TokenType::EnumValue ){
           /* Divide a string do enum em classe e item usando :: como separador */
-          if( preg_match( "#->#", $tokenList->value ) === 0){
+          if( preg_match( "#->#", $token->value ) === 0){
             [ $unitEnum, $unitEnumItem ] = preg_split( 
-              "#(::)#", $tokenList->value, -1, PREG_SPLIT_NO_EMPTY 
+              "#(::)#", $token->value, -1, PREG_SPLIT_NO_EMPTY 
             );
           } else {
             [ $unitEnum, $unitEnumItem, $unitEnumMethod ] = preg_split( 
-              "#(::)|(->)#", $tokenList->value, -1, PREG_SPLIT_NO_EMPTY 
+              "#(::)|(->)#", $token->value, -1, PREG_SPLIT_NO_EMPTY 
             );
           }
 
@@ -322,15 +322,15 @@ class FnBodyToWhere
           if( $unitEnum instanceof UnitEnum ){
             if( $unitEnum instanceof BackedEnum ){
               if( $unitEnumMethod !== null ){
-                $tokenList->value = $unitEnum->{$unitEnumMethod};
+                $token->value = $unitEnum->{$unitEnumMethod};
               }
             } else {
-              $tokenList->value = $unitEnum->name;
+              $token->value = $unitEnum->name;
             }
           }
         }
 
-        return $tokenList;
+        return $token;
       }
     );    
   }
@@ -369,16 +369,16 @@ class FnBodyToWhere
   ): void {
     /* Map through body tokens to process static field values */
     $this->body = $this->body->mapper(
-      function( TokenList $tokenList ) {
+      function( Token $token ) {
         /* Process only field static tokens */
-        if( $tokenList->taken === Token::FieldStatic ){
+        if( $token->takenType === TokenType::FieldStatic ){
           /* Parse and replace static variable references */
-          $tokenList->value = $this->parseFromStatics( 
-            $tokenList->value
+          $token->value = $this->parseFromStatics( 
+            $token->value
           );
         }
 
-        return $tokenList;
+        return $token;
       }
     );
   }
@@ -496,24 +496,24 @@ class FnBodyToWhere
   private function defineFieldParseValue(
   ): void {
     $this->body->mapper(
-      function( TokenList $tokenList ) {
-        if( $tokenList->taken === Token::FieldValue ){
-          $parameter = $this->columnsFromEntity($tokenList->entity);
+      function( Token $token ) {
+        if( $token->takenType === TokenType::FieldValue ){
+          $parameter = $this->columnsFromEntity($token->entity);
 
-          $hasFieldExist = isset( $parameter->columns[ $tokenList->entityField ]);
-          $hasFieldColumnExists = isset( $parameter->columns[ $tokenList->entityField ]->column );
+          $hasFieldExist = isset( $parameter->columns[ $token->entityField ]);
+          $hasFieldColumnExists = isset( $parameter->columns[ $token->entityField ]->column );
 
 
           if( $hasFieldExist && $hasFieldColumnExists && $parameter !== null){
             $columnType = $parameter->columns[
-              $tokenList->entityField
+              $token->entityField
             ]->column->instance->columnType;
 
-            $tokenList->value = $columnType->Encode($tokenList->value);
+            $token->value = $columnType->Encode($token->value);
           }
         }
 
-        return $tokenList;
+        return $token;
       }
     );
   }
@@ -530,8 +530,8 @@ class FnBodyToWhere
         $fieldLeft2, $compare2 
       ] = $tokens->all();
 
-      $hasFieldsEntitys = $fieldLeft1->taken === Token::FieldEntity 
-                       && $fieldLeft2->taken === Token::FieldEntity;
+      $hasFieldsEntitys = $fieldLeft1->takenType === TokenType::FieldEntity 
+                       && $fieldLeft2->takenType === TokenType::FieldEntity;
 
       if( $hasFieldsEntitys ){
         $field1Columns = $this->columnsFromEntity( $fieldLeft1->entity );
@@ -577,8 +577,8 @@ class FnBodyToWhere
     for( $i = 0; $i < $count; $i++ ){
       if( $this->hasBetween( $i ) === true ){
         $newList->add( $items[ $i ]);
-        $newList->add( new TokenList(
-          Token::Logical,
+        $newList->add( new Token(
+          TokenType::Logical,
           true,
           "Between"
         ));

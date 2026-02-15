@@ -4,12 +4,12 @@ namespace Websyspro\SqlFromClass;
 
 use Websyspro\Commons\Collection;
 use Websyspro\SqlFromClass\Enums\EntityPriority;
-use Websyspro\SqlFromClass\Enums\Token;
+use Websyspro\SqlFromClass\Enums\TokenType;
 
-class TokenList
+class Token
 {
   public function __construct(
-    public Token $taken,
+    public TokenType $takenType,
     public $exist,
     public string|Collection $value,
     public string|null $entity = null,
