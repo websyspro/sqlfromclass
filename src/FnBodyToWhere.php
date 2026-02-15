@@ -294,7 +294,7 @@ class FnBodyToWhere
 
   /**
    * Processa tokens de enum values, convertendo referências de enum para seus valores
-   * Transforma tokens como "EnumClass::VALUE" para o nome do valor do enum
+   * Transforma tokens para o nome do valor do enum
    */
   private function defineFieldEnums(
   ): void {
