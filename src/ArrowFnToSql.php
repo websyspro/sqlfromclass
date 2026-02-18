@@ -2,10 +2,13 @@
 
 namespace Websyspro\SqlFromClass;
 
+use Websyspro\SqlFromClass\Interfaces\ParamIndex;
 use Websyspro\SqlFromClass\Enums\EntityPriority;
+use Websyspro\SqlFromClass\Interfaces\Columns;
+use Websyspro\SqlFromClass\Interfaces\Froms;
 use Websyspro\SqlFromClass\Enums\TokenType;
-use Websyspro\Commons\Collection;
 use Websyspro\Entity\Enums\ColumnType;
+use Websyspro\Commons\Collection;
 use Websyspro\Commons\Util;
 use ReflectionFunction;
 use BackedEnum;
@@ -15,38 +18,104 @@ use UnitEnum;
  * Converts function body tokens to WHERE clause conditions by analyzing
  * field entities and determining their relationships to function parameters
  */
-class FnBodyToWhere
+class ArrowFnToSql
 {
+  private Collection|null $params = null;
+  private Collection|null $columns = null;
+  private Collection|null $froms = null;
+
   /**
    * Class constructor that initializes the function body to WHERE clause converter
    * @param ReflectionFunction $reflectionFunction The reflected function to analyze
    * @param Collection $paramters Collection of function parameters
    * @param Collection $static Collection of static values
-   * @param Collection $body Collection of body tokens to process
+   * @param Collection $wheres Collection of body tokens to process
    */
   public function __construct(
     public ReflectionFunction $reflectionFunction,
     public Collection $paramters,
     public Collection $statics,
     public Collection $uses,
-    public Collection $body
-  ){
+    public Collection $wheres
+  ){}
+
+  public function getSql(
+  ): mixed {
     /* Process entity definitions and priorities */
-    $this->defineEntityAndPriority();
+    $this->defineField();
+    // $this->defineExports();
+    
+    //return $this->body;
+    return $this->wheres->mapper( 
+      fn(Token $tokenList ) => $tokenList->value )->joinWithSpace();
+    
+    // return new StrutureSql(
+    //   $this->columns, 
+    //   $this->froms,
+    //   $this->wheres,
+    //   $this->params
+    // );
+  }
+
+  private function defineField(
+  ): void {
+    $this->defineFieldPriority();
     $this->defineFieldEntity();
     $this->defineFieldEnums();
     $this->defineFieldStatics();
     $this->defineFieldSides();
-    $this->defineFieldComparesGroup();
-    $this->defineFieldPropsValue();
-    $this->defineFieldParseValue();
-    $this->defineFieldCompacter();
+    $this->defineFieldGroups();
+    $this->defineFieldHierarchy();
+    $this->defineFieldValues();
+    $this->defineFieldCompactar();
+    $this->defineFieldParameters();
+  }
+
+  private function defineExports(
+  ): void {
+    $this->defineExportsColumns();
+    $this->defineExportsFroms();
+  }
+
+  private function defineExportsColumns(
+  ): void {
+    $this->columns = new Collection();
+    $this->paramters->mapper( 
+      fn( parameter $parameter ) => (
+        Util::mapper( array_keys( $parameter->columns ), 
+          fn(string $field) => (
+            $this->columns->add(
+              new Columns(
+                $field, 
+                $parameter->entity
+              )
+            )
+          )
+        )
+      )
+    );    
+  }
+
+  private function defineExportsFroms(
+  ): void {
+    if( $this->froms === null ){
+      $this->froms = new Collection();
+    }
     
-    print_r($this->body->mapper(
-        fn(Token $tokenList) => $tokenList->value
-      )->joinWithSpace()
+    print_r($this->paramters->last());
+
+    $fromPrimary = $this->paramters->first();
+    $fromJoins = $this->paramters->slice( 1 );
+    
+    $this->froms->add( new Froms( $fromPrimary->entity ));
+    $this->froms->merge( 
+      $fromJoins->mapper(
+        fn(Parameter $parameter) => new Froms( 
+          $parameter->entity, 
+          true 
+        )
+      )
     );
-    //print_r( $this->paramters );
   }
 
   private function useClass(
@@ -85,7 +154,7 @@ class FnBodyToWhere
 
     /* Get the first parameter from the collection */
     $parameterFirst = $this->paramters->first();
-    if($parameterFirst instanceof FnParameter){
+    if($parameterFirst instanceof Parameter){
       /* Compare entity with first parameter's entity to determine priority */
       return $parameterFirst->entity === $entity 
         ? EntityPriority::Primary 
@@ -113,16 +182,16 @@ class FnBodyToWhere
    * to field entity tokens, determining their corresponding entity name
    * and whether they represent primary entities based on function parameters
    */
-  private function defineEntityAndPriority(
+  private function defineFieldPriority(
   ): void {
     /* Map through each token in the body collection */
-    $this->body = $this->body->mapper(
+    $this->wheres = $this->wheres->mapper(
       function( Token $token ) {
         /* Check if current token is a field entity type */
         if( $token->takenType === TokenType::FieldEntity ) {
           /* Extract parameter name by removing $ prefix and -> suffix, then find matching entity */
-          $token->entity = $this->paramters->find( fn( FnParameter $fnParameter ) => (
-            $fnParameter->name === preg_replace( [ "#^\\$#", "#->.*$#" ], "", $token->value )
+          $token->entity = $this->paramters->find( fn( Parameter $parameter ) => (
+            $parameter->name === preg_replace( [ "#^\\$#", "#->.*$#" ], "", $token->value )
           ))->entity;
 
           /* Convert entity class to readable name format */
@@ -144,7 +213,7 @@ class FnBodyToWhere
   private function defineFieldEntity(
   ): void {
     /* Map through body tokens to transform field entity references */
-    $this->body = $this->body->mapper(
+    $this->wheres = $this->wheres->mapper(
       function( Token $token ) {
         /* Process only field entity tokens */
         if( $token->takenType === TokenType::FieldEntity ){
@@ -246,19 +315,24 @@ class FnBodyToWhere
    * Assigns entity metadata to field value tokens based on adjacent comparison tokens
    * Copies entity information from the related field entity to the value token
    */
-  private function defineFieldPropsValue(
+  private function defineFieldHierarchy(
   ): void {
     /* Map through body tokens to assign entity metadata to field values */
-    $this->body = $this->body->mapper(
+    $this->wheres = $this->wheres->mapper(
       function( Token $token, int $i ) {
+        /* Check if current token is a field value type */
+        $hasFieldProps = $token->takenType === TokenType::FieldValue 
+                      || $token->takenType === TokenType::EnumValue 
+                      || $token->takenType === TokenType::FieldStatic;
+
         /* Process only field value tokens */
-        if( $token->takenType === TokenType::FieldValue || $token->takenType === TokenType::EnumValue ){
+        if( $hasFieldProps ){
           /* Check if previous token exists (Value after Entity pattern) */
-          if( $this->body->eq( $i - 1 )->exist() ){
-            $tokenListPrev = $this->body->eq( $i - 1 )->first();
+          if( $this->wheres->eq( $i - 1 )->exist() ){
+            $tokenListPrev = $this->wheres->eq( $i - 1 )->first();
             /* Verify previous token is a comparison operator */
             if( $tokenListPrev->takenType === TokenType::Compare ){
-              $tokenListComparePrev = $this->body->eq( $i - 2 )->first();
+              $tokenListComparePrev = $this->wheres->eq( $i - 2 )->first();
 
               /* Copy entity metadata from the field entity to this value */
               if( $tokenListComparePrev instanceof Token ){
@@ -270,11 +344,11 @@ class FnBodyToWhere
             }
           } else
           /* Check if next token exists (Value before Entity pattern) */
-          if( $this->body->eq( $i + 1 )->exist() ){
-            $tokenListNext = $this->body->eq( $i + 1 )->first();
+          if( $this->wheres->eq( $i + 1 )->exist() ){
+            $tokenListNext = $this->wheres->eq( $i + 1 )->first();
             /* Verify next token is a comparison operator */
             if( $tokenListNext->takenType === TokenType::Compare ){
-              $tokenListCompareNext = $this->body->eq( $i + 2 )->first();
+              $tokenListCompareNext = $this->wheres->eq( $i + 2 )->first();
 
               /* Copy entity metadata from the field entity to this value */
               if( $tokenListCompareNext instanceof Token ){
@@ -298,7 +372,7 @@ class FnBodyToWhere
    */
   private function defineFieldEnums(
   ): void {
-    $this->body = $this->body->mapper(
+    $this->wheres = $this->wheres->mapper(
       function( Token $token ) {
         /* Processa apenas tokens de enum value */
         if( $token->takenType === TokenType::EnumValue ){
@@ -368,7 +442,7 @@ class FnBodyToWhere
   public function defineFieldStatics(
   ): void {
     /* Map through body tokens to process static field values */
-    $this->body = $this->body->mapper(
+    $this->wheres = $this->wheres->mapper(
       function( Token $token ) {
         /* Process only field static tokens */
         if( $token->takenType === TokenType::FieldStatic ){
@@ -389,7 +463,7 @@ class FnBodyToWhere
    */
   public function defineFieldSides(
   ): void {
-    $items = $this->body->all();
+    $items = $this->wheres->all();
     $count = Util::sizeArray( $items);
 
     for( $i = 0; $i < $count - 2; $i++ ){
@@ -424,17 +498,17 @@ class FnBodyToWhere
       }
     }
 
-    $this->body = new Collection($items);
+    $this->wheres = new Collection($items);
   }
 
   /**
    * Groups comparisons of the same field together for optimization
    * Moves duplicate field comparisons to be adjacent, facilitating pattern detection like BETWEEN
    */
-  public function defineFieldComparesGroup(  
+  public function defineFieldGroups(  
   ): void {
-    $items = $this->body->all();
-    $count = $this->body->count();
+    $items = $this->wheres->all();
+    $count = $this->wheres->count();
 
     for( $i = 0; $i < $count; $i++ ){
       $fieldEntity = $this->fieldIsEntity( 
@@ -476,7 +550,7 @@ class FnBodyToWhere
       }
     }
 
-    $this->body = new Collection(
+    $this->wheres = new Collection(
       $items
     );
   }
@@ -485,20 +559,20 @@ class FnBodyToWhere
     string $entity
   ): object|null {
     $columns = $this->paramters->where( 
-      fn( FnParameter $fnParameter ) => (
-        $fnParameter->entity === $entity
+      fn( Parameter $parameter ) => (
+        $parameter->entity === $entity
       )
     );
 
     return $columns->exist() ? $columns->first() : null;
   }
 
-  private function defineFieldParseValue(
+  private function defineFieldValues(
   ): void {
-    $this->body->mapper(
+    $this->wheres->mapper(
       function( Token $token ) {
         if( $token->takenType === TokenType::FieldValue ){
-          $parameter = $this->columnsFromEntity($token->entity);
+          $parameter = $this->columnsFromEntity($token->entity );
 
           $hasFieldExist = isset( $parameter->columns[ $token->entityField ]);
           $hasFieldColumnExists = isset( $parameter->columns[ $token->entityField ]->column );
@@ -521,7 +595,7 @@ class FnBodyToWhere
   private function hasBetween(
     int $index
   ): bool {
-    $tokens = $this->body->slice(
+    $tokens = $this->wheres->slice(
       $index, 7
     );
 
@@ -568,30 +642,61 @@ class FnBodyToWhere
     return false;
   }
 
-  private function defineFieldCompacter(
+  private function defineFieldCompactar(
   ): void {
-    $items = $this->body->all();
-    $count = $this->body->count();
-    $newList = new Collection();
+    $items = $this->wheres->all();
+    $count = $this->wheres->count();
+    $body  = new Collection();
     
     for( $i = 0; $i < $count; $i++ ){
       if( $this->hasBetween( $i ) === true ){
-        $newList->add( $items[ $i ]);
-        $newList->add( new Token(
+        $body->add( $items[ $i ]);
+        $body->add( new Token(
           TokenType::Logical,
-          true,
           "Between"
         ));
-        $newList->add( $items[ $i + 2 ]);
-        $newList->add( $items[ $i + 3 ]);
-        $newList->add( $items[ $i + 6 ]); 
+        $body->add( $items[ $i + 2 ]);
+        $body->add( $items[ $i + 3 ]);
+        $body->add( $items[ $i + 6 ]); 
 
         $i += 6;
       } else {
-        $newList->add( $items[ $i ] );
+        $body->add( $items[ $i ] );
       }
     }
 
-    $this->body = $newList;
+    $this->wheres = $body;
+  }
+
+  private function defineFieldParameters(): void {
+    $this->wheres = $this->wheres->mapper(
+      function( Token $token, int $index ) {
+        $hasParameters = Util::inArray( 
+          $token->takenType, [ 
+            TokenType::FieldStatic,
+            TokenType::FieldValue,
+            TokenType::EnumValue
+          ]
+        );
+
+        if( $hasParameters === true ){
+          if( $this->params === null ){
+            $this->params = new Collection();
+          }
+          
+          $this->params->add( 
+            new ParamIndex( 
+              $index, 
+              $token->value
+            )
+          );
+
+          $token->value = $this->params->last()->getAlias();
+
+        }
+
+        return $token;
+      }
+    );
   }
 }

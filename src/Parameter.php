@@ -2,7 +2,7 @@
 
 namespace Websyspro\SqlFromClass;
 
-class FnParameter
+class Parameter
 {
   public function __construct(
     public string $name,

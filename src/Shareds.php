@@ -2,11 +2,11 @@
 
 namespace Websyspro\SqlFromClass;
 
-use ReflectionFunction;
-use ReflectionParameter;
+use Websyspro\SqlFromClass\Enums\TokenType;
 use Websyspro\Commons\Collection;
 use Websyspro\Commons\Util;
-use Websyspro\SqlFromClass\Enums\TokenType;
+use ReflectionParameter;
+use ReflectionFunction;
 
 /**
  * Classe utilitária para conversão de arrow functions em objetos FnBody
@@ -27,7 +27,7 @@ class Shareds
       function( ReflectionParameter $reflectionParameter ) {
         $reflectionParameterType = $reflectionParameter->getType();
 
-        return new FnParameter(
+        return new Parameter(
           $reflectionParameter->getName(),
           $reflectionParameterType,
           "{$reflectionParameterType}::getColumns"()
@@ -106,7 +106,6 @@ class Shareds
   ): Token {
     return new Token(
       Shareds::convertToken( $token ),
-      true,
       $token
     );
   }
@@ -190,14 +189,14 @@ class Shareds
   /**
    * Converte uma arrow function em objeto FnBody
    */
-  public static function arrowFnToTokens(
+  public static function createTokens(
     callable $arrowFnToString
-  ): FnBodyToWhere {
+  ): ArrowFnToSql {
     $reflectionFunction = new ReflectionFunction(
       $arrowFnToString
     );
 
-    return new FnBodyToWhere(
+    return new ArrowFnToSql(
       $reflectionFunction,
       Shareds::createParametersFromArrowFn( $reflectionFunction ),
       Shareds::createStaticFromArrowFn( $reflectionFunction ),

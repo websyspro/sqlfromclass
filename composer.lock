@@ -12,12 +12,12 @@
             "source": {
                 "type": "git",
                 "url": "https://github.com/websyspro/commons.git",
-                "reference": "3591380a154a93628fb8f1b5bd888899474b69c4"
+                "reference": "35618e3e80d3a3bb00ef5be2168a9ff324a6bfb7"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/websyspro/commons/zipball/3591380a154a93628fb8f1b5bd888899474b69c4",
-                "reference": "3591380a154a93628fb8f1b5bd888899474b69c4",
+                "url": "https://api.github.com/repos/websyspro/commons/zipball/35618e3e80d3a3bb00ef5be2168a9ff324a6bfb7",
+                "reference": "35618e3e80d3a3bb00ef5be2168a9ff324a6bfb7",
                 "shasum": ""
             },
             "default-branch": true,
@@ -42,7 +42,7 @@
                 "issues": "https://github.com/websyspro/commons/issues",
                 "source": "https://github.com/websyspro/commons/tree/main"
             },
-            "time": "2026-02-10T18:37:28+00:00"
+            "time": "2026-02-18T21:10:01+00:00"
         },
         {
             "name": "websyspro/devtools",
@@ -139,12 +139,12 @@
             "source": {
                 "type": "git",
                 "url": "https://github.com/websyspro/entity.git",
-                "reference": "ac321d6ec41f3e26a111eeff817412e1669b4367"
+                "reference": "b94b788afa8ec0a341331882783afa36f4c36317"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/websyspro/entity/zipball/ac321d6ec41f3e26a111eeff817412e1669b4367",
-                "reference": "ac321d6ec41f3e26a111eeff817412e1669b4367",
+                "url": "https://api.github.com/repos/websyspro/entity/zipball/b94b788afa8ec0a341331882783afa36f4c36317",
+                "reference": "b94b788afa8ec0a341331882783afa36f4c36317",
                 "shasum": ""
             },
             "require-dev": {
@@ -154,6 +154,7 @@
             "type": "library",
             "autoload": {
                 "psr-4": {
+                    "Websyspro\\Test\\": "test/",
                     "Websyspro\\Entity\\": "src/"
                 }
             },
@@ -172,7 +173,7 @@
                 "issues": "https://github.com/websyspro/entity/issues",
                 "source": "https://github.com/websyspro/entity/tree/main"
             },
-            "time": "2026-02-14T20:45:28+00:00"
+            "time": "2026-02-18T22:04:32+00:00"
         }
     ],
     "packages-dev": [],

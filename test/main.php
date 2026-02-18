@@ -1,15 +1,15 @@
 <?php
 
-use Websyspro\SqlFromClass\FnBodyToWhere;
-use Websyspro\SqlFromClass\Shareds;
-use Websyspro\Test\Entitys\BoxEntity;
 use Websyspro\Test\Entitys\DocumentEntity;
+use Websyspro\SqlFromClass\ArrowFnToSql;
+use Websyspro\Test\Entitys\BoxEntity;
+use Websyspro\SqlFromClass\Shareds;
 use Websyspro\Test\Enums\BoxState;
 
-function where(
+function Repository(
   int $boxId
-): FnBodyToWhere {
-  return Shareds::arrowFnToTokens(
+): ArrowFnToSql {
+  return Shareds::createTokens(
     fn(
       BoxEntity $box,
       DocumentEntity $document
@@ -23,5 +23,7 @@ function where(
   );
 }
 
-$where = where( 6 );
-// print_r( $where );
+$where = Repository( 6 )
+  ->getSql();
+
+print_r( $where );

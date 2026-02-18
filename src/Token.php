@@ -10,7 +10,6 @@ class Token
 {
   public function __construct(
     public TokenType $takenType,
-    public $exist,
     public string|Collection $value,
     public string|null $entity = null,
     public string|null $entityName = null,
