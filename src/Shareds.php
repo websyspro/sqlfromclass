@@ -27,10 +27,14 @@ class Shareds
       function( ReflectionParameter $reflectionParameter ) {
         $reflectionParameterType = $reflectionParameter->getType();
 
+        echo $reflectionParameter->getType();
+
         return new Parameter(
           $reflectionParameter->getName(),
-          $reflectionParameterType,
-          "{$reflectionParameterType}::getColumns"()
+          $reflectionParameter->getType(),
+          call_user_func_array(
+            [ $reflectionParameter->getType(), "getAttributes" ], []
+          )
         );
       }
     );

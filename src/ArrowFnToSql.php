@@ -71,53 +71,6 @@ class ArrowFnToSql
     $this->defineFieldParameters();
   }
 
-  private function defineExports(
-  ): void {
-    $this->defineExportsColumns();
-    $this->defineExportsFroms();
-  }
-
-  private function defineExportsColumns(
-  ): void {
-    $this->columns = new Collection();
-    $this->paramters->mapper( 
-      fn( parameter $parameter ) => (
-        Util::mapper( array_keys( $parameter->columns ), 
-          fn(string $field) => (
-            $this->columns->add(
-              new Columns(
-                $field, 
-                $parameter->entity
-              )
-            )
-          )
-        )
-      )
-    );    
-  }
-
-  private function defineExportsFroms(
-  ): void {
-    if( $this->froms === null ){
-      $this->froms = new Collection();
-    }
-    
-    print_r($this->paramters->last());
-
-    $fromPrimary = $this->paramters->first();
-    $fromJoins = $this->paramters->slice( 1 );
-    
-    $this->froms->add( new Froms( $fromPrimary->entity ));
-    $this->froms->merge( 
-      $fromJoins->mapper(
-        fn(Parameter $parameter) => new Froms( 
-          $parameter->entity, 
-          true 
-        )
-      )
-    );
-  }
-
   private function useClass(
     string $class
   ): UseClass {

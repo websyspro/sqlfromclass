@@ -2,11 +2,13 @@
 
 namespace Websyspro\SqlFromClass;
 
+use Websyspro\Entity\Shareds\EntityStructure;
+
 class Parameter
 {
   public function __construct(
     public string $name,
     public string $entity,
-    public array|null $columns = []
+    public EntityStructure $entityStructure
   ){}   
 }
