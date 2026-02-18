@@ -4,8 +4,6 @@ namespace Websyspro\SqlFromClass;
 
 use Websyspro\SqlFromClass\Interfaces\ParamIndex;
 use Websyspro\SqlFromClass\Enums\EntityPriority;
-use Websyspro\SqlFromClass\Interfaces\Columns;
-use Websyspro\SqlFromClass\Interfaces\Froms;
 use Websyspro\SqlFromClass\Enums\TokenType;
 use Websyspro\Entity\Enums\ColumnType;
 use Websyspro\Commons\Collection;
@@ -20,23 +18,21 @@ use UnitEnum;
  */
 class ArrowFnToSql
 {
-  private Collection|null $params = null;
-  private Collection|null $columns = null;
-  private Collection|null $froms = null;
+  public Collection|null $params = null;
 
   /**
    * Class constructor that initializes the function body to WHERE clause converter
    * @param ReflectionFunction $reflectionFunction The reflected function to analyze
    * @param Collection $paramters Collection of function parameters
    * @param Collection $static Collection of static values
-   * @param Collection $wheres Collection of body tokens to process
+   * @param Collection $tokens Collection of body tokens to process
    */
   public function __construct(
     public ReflectionFunction $reflectionFunction,
     public Collection $paramters,
     public Collection $statics,
     public Collection $uses,
-    public Collection $wheres
+    public Collection $tokens
   ){}
 
   public function getSql(
@@ -45,14 +41,14 @@ class ArrowFnToSql
     $this->defineField();
     // $this->defineExports();
     
-    //return $this->body;
-    return $this->wheres->mapper( 
-      fn(Token $tokenList ) => $tokenList->value )->joinWithSpace();
+    return $this;
+    //return $this->tokens->mapper( 
+      //fn(Token $tokenList ) => $tokenList->value )->joinWithSpace();
     
     // return new StrutureSql(
     //   $this->columns, 
     //   $this->froms,
-    //   $this->wheres,
+    //   $this->tokens,
     //   $this->params
     // );
   }
@@ -138,7 +134,7 @@ class ArrowFnToSql
   private function defineFieldPriority(
   ): void {
     /* Map through each token in the body collection */
-    $this->wheres = $this->wheres->mapper(
+    $this->tokens = $this->tokens->mapper(
       function( Token $token ) {
         /* Check if current token is a field entity type */
         if( $token->takenType === TokenType::FieldEntity ) {
@@ -166,7 +162,7 @@ class ArrowFnToSql
   private function defineFieldEntity(
   ): void {
     /* Map through body tokens to transform field entity references */
-    $this->wheres = $this->wheres->mapper(
+    $this->tokens = $this->tokens->mapper(
       function( Token $token ) {
         /* Process only field entity tokens */
         if( $token->takenType === TokenType::FieldEntity ){
@@ -271,7 +267,7 @@ class ArrowFnToSql
   private function defineFieldHierarchy(
   ): void {
     /* Map through body tokens to assign entity metadata to field values */
-    $this->wheres = $this->wheres->mapper(
+    $this->tokens = $this->tokens->mapper(
       function( Token $token, int $i ) {
         /* Check if current token is a field value type */
         $hasFieldProps = $token->takenType === TokenType::FieldValue 
@@ -281,11 +277,11 @@ class ArrowFnToSql
         /* Process only field value tokens */
         if( $hasFieldProps ){
           /* Check if previous token exists (Value after Entity pattern) */
-          if( $this->wheres->eq( $i - 1 )->exist() ){
-            $tokenListPrev = $this->wheres->eq( $i - 1 )->first();
+          if( $this->tokens->eq( $i - 1 )->exist() ){
+            $tokenListPrev = $this->tokens->eq( $i - 1 )->first();
             /* Verify previous token is a comparison operator */
             if( $tokenListPrev->takenType === TokenType::Compare ){
-              $tokenListComparePrev = $this->wheres->eq( $i - 2 )->first();
+              $tokenListComparePrev = $this->tokens->eq( $i - 2 )->first();
 
               /* Copy entity metadata from the field entity to this value */
               if( $tokenListComparePrev instanceof Token ){
@@ -297,11 +293,11 @@ class ArrowFnToSql
             }
           } else
           /* Check if next token exists (Value before Entity pattern) */
-          if( $this->wheres->eq( $i + 1 )->exist() ){
-            $tokenListNext = $this->wheres->eq( $i + 1 )->first();
+          if( $this->tokens->eq( $i + 1 )->exist() ){
+            $tokenListNext = $this->tokens->eq( $i + 1 )->first();
             /* Verify next token is a comparison operator */
             if( $tokenListNext->takenType === TokenType::Compare ){
-              $tokenListCompareNext = $this->wheres->eq( $i + 2 )->first();
+              $tokenListCompareNext = $this->tokens->eq( $i + 2 )->first();
 
               /* Copy entity metadata from the field entity to this value */
               if( $tokenListCompareNext instanceof Token ){
@@ -325,7 +321,7 @@ class ArrowFnToSql
    */
   private function defineFieldEnums(
   ): void {
-    $this->wheres = $this->wheres->mapper(
+    $this->tokens = $this->tokens->mapper(
       function( Token $token ) {
         /* Processa apenas tokens de enum value */
         if( $token->takenType === TokenType::EnumValue ){
@@ -395,7 +391,7 @@ class ArrowFnToSql
   public function defineFieldStatics(
   ): void {
     /* Map through body tokens to process static field values */
-    $this->wheres = $this->wheres->mapper(
+    $this->tokens = $this->tokens->mapper(
       function( Token $token ) {
         /* Process only field static tokens */
         if( $token->takenType === TokenType::FieldStatic ){
@@ -416,7 +412,7 @@ class ArrowFnToSql
    */
   public function defineFieldSides(
   ): void {
-    $items = $this->wheres->all();
+    $items = $this->tokens->all();
     $count = Util::sizeArray( $items);
 
     for( $i = 0; $i < $count - 2; $i++ ){
@@ -451,7 +447,7 @@ class ArrowFnToSql
       }
     }
 
-    $this->wheres = new Collection($items);
+    $this->tokens = new Collection($items);
   }
 
   /**
@@ -460,8 +456,8 @@ class ArrowFnToSql
    */
   public function defineFieldGroups(  
   ): void {
-    $items = $this->wheres->all();
-    $count = $this->wheres->count();
+    $items = $this->tokens->all();
+    $count = $this->tokens->count();
 
     for( $i = 0; $i < $count; $i++ ){
       $fieldEntity = $this->fieldIsEntity( 
@@ -503,7 +499,7 @@ class ArrowFnToSql
       }
     }
 
-    $this->wheres = new Collection(
+    $this->tokens = new Collection(
       $items
     );
   }
@@ -522,7 +518,7 @@ class ArrowFnToSql
 
   private function defineFieldValues(
   ): void {
-    $this->wheres->mapper(
+    $this->tokens->mapper(
       function( Token $token ) {
         if( $token->takenType === TokenType::FieldValue ){
           $parameter = $this->columnsFromEntity($token->entity );
@@ -548,7 +544,7 @@ class ArrowFnToSql
   private function hasBetween(
     int $index
   ): bool {
-    $tokens = $this->wheres->slice(
+    $tokens = $this->tokens->slice(
       $index, 7
     );
 
@@ -597,8 +593,8 @@ class ArrowFnToSql
 
   private function defineFieldCompactar(
   ): void {
-    $items = $this->wheres->all();
-    $count = $this->wheres->count();
+    $items = $this->tokens->all();
+    $count = $this->tokens->count();
     $body  = new Collection();
     
     for( $i = 0; $i < $count; $i++ ){
@@ -618,11 +614,11 @@ class ArrowFnToSql
       }
     }
 
-    $this->wheres = $body;
+    $this->tokens = $body;
   }
 
   private function defineFieldParameters(): void {
-    $this->wheres = $this->wheres->mapper(
+    $this->tokens = $this->tokens->mapper(
       function( Token $token, int $index ) {
         $hasParameters = Util::inArray( 
           $token->takenType, [ 

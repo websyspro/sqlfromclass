@@ -2,6 +2,7 @@
 
 namespace Websyspro\SqlFromClass;
 
+use ReflectionNamedType;
 use Websyspro\SqlFromClass\Enums\TokenType;
 use Websyspro\Commons\Collection;
 use Websyspro\Commons\Util;
@@ -26,15 +27,12 @@ class Shareds
     return $parameters->mapper(
       function( ReflectionParameter $reflectionParameter ) {
         $reflectionParameterType = $reflectionParameter->getType();
-
-        echo $reflectionParameter->getType();
-
         return new Parameter(
           $reflectionParameter->getName(),
-          $reflectionParameter->getType(),
-          call_user_func_array(
-            [ $reflectionParameter->getType(), "getAttributes" ], []
-          )
+          $reflectionParameterType,
+          $reflectionParameterType instanceof ReflectionNamedType ? call_user_func_array(
+            [ $reflectionParameterType->getName(), "getAttributes" ], []
+          ) : null
         );
       }
     );

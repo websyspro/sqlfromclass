@@ -9,6 +9,6 @@ class Parameter
   public function __construct(
     public string $name,
     public string $entity,
-    public EntityStructure $entityStructure
+    public EntityStructure|null $entityStructure = null
   ){}   
 }
