@@ -17,7 +17,7 @@ function Repository(
       $box->Id === $boxId && 
       $box->CreatedAt >= '02/02/2026' &&
       $box->State === BoxState::Close->value &&
-      '14/02/2026' >= $box->CreatedAt &&
+      '14/02/2026' >= $box->CreatedAt ||
       $document->BoxId === $box->Id 
     )
   );
@@ -26,4 +26,4 @@ function Repository(
 $where = Repository( 6 )
   ->getSql();
 
-print_r( $where );
+//print_r( $where );

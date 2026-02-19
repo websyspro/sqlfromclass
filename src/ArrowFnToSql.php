@@ -41,7 +41,7 @@ class ArrowFnToSql
     $this->defineField();
     // $this->defineExports();
     
-    return $this;
+    return $this->tokens;
     //return $this->tokens->mapper( 
       //fn(Token $tokenList ) => $tokenList->value )->joinWithSpace();
     
@@ -523,15 +523,11 @@ class ArrowFnToSql
         if( $token->takenType === TokenType::FieldValue ){
           $parameter = $this->columnsFromEntity($token->entity );
 
-          $hasFieldExist = isset( $parameter->columns[ $token->entityField ]);
-          $hasFieldColumnExists = isset( $parameter->columns[ $token->entityField ]->column );
-
+          $hasFieldExist = $parameter->entityStructure->types->get( $token->entityField ) !== null;
+          $hasFieldColumnExists = isset( $parameter->entityStructure->types->get( $token->entityField )->instance );
 
           if( $hasFieldExist && $hasFieldColumnExists && $parameter !== null){
-            $columnType = $parameter->columns[
-              $token->entityField
-            ]->column->instance->columnType;
-
+            $columnType = $parameter->entityStructure->types->get( $token->entityField )->instance->columnType;
             $token->value = $columnType->Encode($token->value);
           }
         }
@@ -561,13 +557,13 @@ class ArrowFnToSql
         $field2Columns = $this->columnsFromEntity( $fieldLeft2->entity );
 
         $hasfield1ColumnType = in_array(
-          $field1Columns->columns[ $fieldLeft1->entityField ]->column->instance->columnType, [
+          $field1Columns->entityStructure->types->get( $fieldLeft1->entityField )->instance->columnType, [
             ColumnType::date, ColumnType::datetime, ColumnType::number
           ]
         );
 
         $hasfield2ColumnType = in_array(
-          $field2Columns->columns[ $fieldLeft2->entityField ]->column->instance->columnType, [
+          $field2Columns->entityStructure->types->get( $fieldLeft2->entityField )->instance->columnType, [
             ColumnType::date, ColumnType::datetime, ColumnType::number
           ]
         );
