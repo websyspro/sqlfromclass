@@ -2,7 +2,7 @@
 
 namespace Websyspro\Test\Entitys;
 
-use Websyspro\Commons\DataList;
+use Websyspro\Commons\Collection;
 use Websyspro\Entity\Decorations\Statistics\Index;
 use Websyspro\Entity\Decorations\Columns\Decimal;
 use Websyspro\Entity\Decorations\Columns\Number;
@@ -73,5 +73,5 @@ extends BaseEntity
   public string $Observations;
 
   #[OneToMany(DocumentItemEntity::class)]
-  public DataList $DocumentItems;
+  public Collection $DocumentItems;
 }

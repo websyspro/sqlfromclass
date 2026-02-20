@@ -2,6 +2,8 @@
 
 namespace Websyspro\SqlFromClass;
 
+use Websyspro\Entity\Shareds\EntityStructure;
+use Websyspro\SqlFromClass\Interfaces\LeftJoin;
 use Websyspro\SqlFromClass\Interfaces\ParamIndex;
 use Websyspro\SqlFromClass\Enums\EntityPriority;
 use Websyspro\SqlFromClass\Enums\TokenType;
@@ -11,6 +13,7 @@ use Websyspro\Commons\Util;
 use ReflectionFunction;
 use BackedEnum;
 use UnitEnum;
+use Websyspro\Entity\Shareds\Entity;
 
 /**
  * Converts function body tokens to WHERE clause conditions by analyzing
@@ -41,9 +44,9 @@ class ArrowFnToSql
     $this->defineField();
     // $this->defineExports();
     
-    return $this->tokens;
-    //return $this->tokens->mapper( 
-      //fn(Token $tokenList ) => $tokenList->value )->joinWithSpace();
+    //return $this;
+    return $this->tokens->mapper( 
+       fn(Token $tokenList ) => $tokenList->value )->joinWithSpace();
     
     // return new StrutureSql(
     //   $this->columns, 
@@ -65,7 +68,7 @@ class ArrowFnToSql
     $this->defineFieldValues();
     $this->defineFieldCompactar();
     $this->defineFieldInJoins();
-    //$this->defineFieldParameters();
+    $this->defineFieldParameters();
   }
 
   private function useClass(
@@ -621,26 +624,106 @@ class ArrowFnToSql
       $index, 3
     );
 
-    if( $tokens->exist() && $tokens->count() === 7 ){
+    if( $tokens->exist() && $tokens->count() === 3 ){
       [ $fieldLeft1, $compare, $fieldLeft2 ] = $tokens->all();
-      
+
       return $fieldLeft1->takenType === TokenType::FieldEntity 
           && $fieldLeft2->takenType === TokenType::FieldEntity
-          && $fieldLeft1->entityPriority !== $fieldLeft2->entityPriority
           && $compare->value === "=";
     }    
 
     return false;
   }
 
+  private function defineFieldInJoinsAdd(
+    int $secundaryIndex,
+    Token $fieldSecundaryIndex,
+    Token $fieldPrimaryIndex,
+    object|null $entityFieldSecundaryIndex,
+    object|null $entityFieldPrimaryIndex
+  ): void {
+    $tokens = $this->tokens->all();
+
+    if( $tokens[ $secundaryIndex ] instanceof Token ){
+      $tokens[ $secundaryIndex ]->leftJoin = new LeftJoin(
+        $entityFieldSecundaryIndex->entityStructure->entity->table, 
+        $fieldSecundaryIndex->entityField,
+        $entityFieldPrimaryIndex->entityStructure->entity->table, 
+        $fieldPrimaryIndex->entityField
+      );
+
+      $this->tokens = new Collection( 
+        $tokens
+      );
+    }    
+  }
+
+  private function defineFieldInJoinsApply(
+    int $secundaryIndex, 
+    int $primaryIndex
+  ): void {
+    [ $fieldSecundaryIndex, $fieldPrimaryIndex ] = [ 
+      $this->tokens->get( $secundaryIndex ),
+      $this->tokens->get( $primaryIndex )
+    ];
+
+    if( $fieldPrimaryIndex instanceof Token && $fieldSecundaryIndex instanceof Token ){
+      $entityFieldSecundaryIndex = $this->columnsFromEntity( $fieldSecundaryIndex->entity );
+      $entityFieldPrimaryIndex = $this->columnsFromEntity( $fieldPrimaryIndex->entity );
+
+      if( $entityFieldSecundaryIndex->entityStructure instanceof EntityStructure 
+       && $entityFieldPrimaryIndex->entityStructure instanceof EntityStructure ){
+        if( $entityFieldSecundaryIndex->entityStructure->oneToOne->exist() === true ){
+          $oneToOneList = $entityFieldSecundaryIndex->entityStructure->oneToOne->where(
+            fn( Entity $entity) => $entity->table === $entityFieldPrimaryIndex->entityStructure->entity->table
+          );
+
+          if( $oneToOneList->exist() === true ){
+            $this->defineFieldInJoinsAdd( 
+              $secundaryIndex,
+              $fieldSecundaryIndex,
+              $fieldPrimaryIndex,
+              $entityFieldSecundaryIndex,
+              $entityFieldPrimaryIndex 
+            );
+          }
+        }
+
+        if( $entityFieldPrimaryIndex->entityStructure->oneToOne->exist() === true ){
+          $oneToOneList = $entityFieldPrimaryIndex->entityStructure->oneToOne->where(
+            fn( Entity $entity) => $entity->table === $entityFieldSecundaryIndex->entityStructure->entity->table
+          );
+
+          if( $oneToOneList->exist() === true ){
+            $this->defineFieldInJoinsAdd( 
+              $secundaryIndex,
+              $fieldSecundaryIndex,
+              $fieldPrimaryIndex,
+              $entityFieldSecundaryIndex,
+              $entityFieldPrimaryIndex 
+            );
+          }
+        }
+      }
+    }
+  }
+
   private function defineFieldInJoins(
   ): void {
-    $items = $this->tokens->all();
     $count = $this->tokens->count();
     
     for( $i = 0; $i < $count; $i++ ){
       if( $this->hasJoin( $i ) === true ){
-        print_r($i);
+        $field1 = $this->tokens->get( $i );
+        $field2 = $this->tokens->get( $i + 2 );
+
+        
+        if( $field1 instanceof Token && $field1->entityPriority === EntityPriority::Secundary ){
+          $this->defineFieldInJoinsApply( $i, $i + 2 );
+        } else
+        if( $field2 instanceof Token && $field2->entityPriority === EntityPriority::Secundary ){
+          $this->defineFieldInJoinsApply( $i + 2, $i );
+        }
       }
     }
   }  
