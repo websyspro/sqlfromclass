@@ -64,7 +64,8 @@ class ArrowFnToSql
     $this->defineFieldHierarchy();
     $this->defineFieldValues();
     $this->defineFieldCompactar();
-    $this->defineFieldParameters();
+    $this->defineFieldInJoins();
+    //$this->defineFieldParameters();
   }
 
   private function useClass(
@@ -552,7 +553,7 @@ class ArrowFnToSql
       $hasFieldsEntitys = $fieldLeft1->takenType === TokenType::FieldEntity 
                        && $fieldLeft2->takenType === TokenType::FieldEntity;
 
-      if( $hasFieldsEntitys ){
+      if( $hasFieldsEntitys === true ){
         $field1Columns = $this->columnsFromEntity( $fieldLeft1->entity );
         $field2Columns = $this->columnsFromEntity( $fieldLeft2->entity );
 
@@ -612,6 +613,37 @@ class ArrowFnToSql
 
     $this->tokens = $body;
   }
+
+  private function hasJoin(
+    int $index
+  ): bool {
+    $tokens = $this->tokens->slice(
+      $index, 3
+    );
+
+    if( $tokens->exist() && $tokens->count() === 7 ){
+      [ $fieldLeft1, $compare, $fieldLeft2 ] = $tokens->all();
+      
+      return $fieldLeft1->takenType === TokenType::FieldEntity 
+          && $fieldLeft2->takenType === TokenType::FieldEntity
+          && $fieldLeft1->entityPriority !== $fieldLeft2->entityPriority
+          && $compare->value === "=";
+    }    
+
+    return false;
+  }
+
+  private function defineFieldInJoins(
+  ): void {
+    $items = $this->tokens->all();
+    $count = $this->tokens->count();
+    
+    for( $i = 0; $i < $count; $i++ ){
+      if( $this->hasJoin( $i ) === true ){
+        print_r($i);
+      }
+    }
+  }  
 
   private function defineFieldParameters(): void {
     $this->tokens = $this->tokens->mapper(
