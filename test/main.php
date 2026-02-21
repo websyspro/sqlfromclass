@@ -28,10 +28,7 @@ function Repository(
       $document->CreatedAt <= '15/04/2022' &&
       $document->Observations === "Documento cancelado" &&
       $document->Actived === null &&
-      $document->State === [ 
-        DocumentState::Finalizado, 
-        DocumentState::Cancelado
-      ]
+      $document->State === [ DocumentState::Finalizado, DocumentState::Cancelado ]
     )
   );
 }
