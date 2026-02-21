@@ -4,9 +4,11 @@ use Websyspro\Test\Entitys\DocumentEntity;
 use Websyspro\SqlFromClass\ArrowFnToSql;
 use Websyspro\Test\Entitys\BoxEntity;
 use Websyspro\SqlFromClass\Shareds;
+use Websyspro\SqlFromClass\Token;
 use Websyspro\Test\Entitys\DocumentItemEntity;
 use Websyspro\Test\Entitys\OperatorEntity;
-use Websyspro\Test\Enums\BoxState;
+use Websyspro\Test\Enums\DocumentState;
+
 
 function Repository(
   int $boxId
@@ -14,25 +16,40 @@ function Repository(
   return Shareds::createTokens(
     fn(
       BoxEntity $box,
+      OperatorEntity $operator,
       DocumentEntity $document,
       DocumentItemEntity $documentItem,
-      OperatorEntity $operator
     ) => (
-      $box->Id === $boxId && 
-      $box->CreatedAt >= '02/02/2026' &&
-      $box->State === BoxState::Close->value &&
-      '14/02/2026' >= $box->CreatedAt &&
-      $document->BoxId === $box->Id &&
-      $operator->Id === $document->OperatorId &&
-      $documentItem->DocumentId === $document->Id 
+      $box->Id === $boxId &&
+      $box->Id === $document->BoxId &&
+      $box->OperatorId === $operator->Id &&
+      $document->Id === $documentItem->DocumentId &&
+      $document->CreatedAt >= '02/04/2022' &&
+      $document->CreatedAt <= '15/04/2022' &&
+      $document->Observations === "Documento cancelado" &&
+      $document->Actived === null &&
+      $document->State === [ 
+        DocumentState::Finalizado, 
+        DocumentState::Cancelado
+      ]
     )
   );
 }
 
+
+
+$start = microtime(true);
+
 $where = Repository( 6 )
   ->getSql();
 
-print_r( $where );
+$executionTime = (microtime(true) - $start) * 1000;
+
+$sqlList = $where->tokens->mapper(fn( Token $t ) => $t->value );  
+print_r( $sqlList->joinWithSpace());
+echo "\nTempo de execução: " . number_format($executionTime, 4) . " ms\n";
+
+//print_r( $where->tokens );
 
 
 // Sintaxe PHP,Valor Detectado,Tradução SQL,Exemplo

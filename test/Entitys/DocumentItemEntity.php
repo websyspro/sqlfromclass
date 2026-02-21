@@ -14,7 +14,10 @@ extends BaseEntity
   #[Number()]
   #[ForeignKey(DocumentEntity::class)]
   public string $DocumentId;
-
+  
+  #[OneToOne( DocumentEntity::class )]
+  public DocumentEntity $document;
+  
   #[Number()]
   #[ForeignKey(ProductEntity::class)]
   public string $ProductId;

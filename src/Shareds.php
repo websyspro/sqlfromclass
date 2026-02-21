@@ -69,34 +69,43 @@ class Shareds
     );
   }
 
+  private static function createJoinsFromArrowFn(
+    ReflectionFunction $reflectionFunction
+  ): Collection {
+    return new Collection();
+  }  
+
   /**
    * Converts a string token into its corresponding Token enum type
    */
   private static function convertToken(
     string $token
   ): TokenType {
-    if(Util::match("#(=|==|===|<>|!=|!==|>=|<=)#", $token)){
+    if( Util::match("#(=|==|===|<>|!=|!==|>=|<=)#", $token)){
       return TokenType::Compare;
     } else
-    if(Util::match("#^\\\$.*->.*$#", $token)){
+    if( Util::match("#^\\\$.*->.*$#", $token)){
       return TokenType::FieldEntity;
     } else
-    if(Util::match("#\\\$(\{[a-zA-Z_][a-zA-Z0-9_]*\}|[a-zA-Z_][a-zA-Z0-9_]*)#", $token)){
+    if( Util::match("#\\\$(\{[a-zA-Z_][a-zA-Z0-9_]*\}|[a-zA-Z_][a-zA-Z0-9_]*)#", $token)){
       return TokenType::FieldStatic;
     } else
-    if(Util::match("#^(\\\"|').*(\\\"|')$#", $token)){
+    if( Util::match("#^(\\\"|').*(\\\"|')$#", $token)){
       return TokenType::FieldValue;
     } else
-    if(Util::match( "#(&&|\|\||And|Or)#", $token)){
+    if( Util::match( "#(&&|\|\||And|Or)#", $token)){
       return TokenType::Logical;
     }else
-    if(Util::match( "#^[a-zA-Z]{1}.*::.*(->(?:name|value))?$#", $token )){
+    if( Util::match( "#^[a-zA-Z]{1}.*::.*(->(?:name|value))?$#", $token )){
       return TokenType::EnumValue;
     } else
-    if(Util::match( "#^\($#", $token )){
+    if(Util::match("#^,$#", $token)){
+      return TokenType::FieldIgnore;
+    } else
+    if( Util::match( "#^\($#", $token )){
       return TokenType::StartParent;
     } else 
-    if(Util::match( "#^\)$#", $token )){
+    if( Util::match( "#^\)$#", $token )){
       return TokenType::EndParent;
     }
 
@@ -167,11 +176,18 @@ class Shareds
       )->toString()
     );
 
+    // Original
+    // preg_match_all(
+    //    "#'[^']*'|\"[^\"]*\"|\\S+#",
+    //   $sourceString,
+    //   $sourceCollectionTokens
+    // );
+
     preg_match_all(
-       "#'[^']*'|\"[^\"]*\"|\\S+#",
-      $sourceString,
-      $sourceCollectionTokens
-    );
+        "#'[^']*'|\"[^\"]*\"|\\$?[\\w\\\\-]+(?:->|::)[\\w\\\\-]+|\\$?[\\w\\\\-]+|>=|<=|<>|[<>=!]+|\\(|\\)|,|\\S#",
+        $sourceString,
+        $sourceCollectionTokens
+    ); 
 
     if( Util::sizeArray($sourceCollectionTokens) === 1 ){
       [ $sourceCollections ] = $sourceCollectionTokens;
@@ -202,6 +218,7 @@ class Shareds
       $reflectionFunction,
       Shareds::createParametersFromArrowFn( $reflectionFunction ),
       Shareds::createStaticFromArrowFn( $reflectionFunction ),
+      Shareds::createJoinsFromArrowFn( $reflectionFunction ),
       Shareds::createUsesFromArrowFn( $reflectionFunction ),
       Shareds::createBodyFromArrowFn( $reflectionFunction )
     );

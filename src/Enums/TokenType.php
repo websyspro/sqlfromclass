@@ -13,4 +13,5 @@ enum TokenType
   case StartParent;
   case EndParent;
   case Empty;
+  case FieldIgnore;
 }

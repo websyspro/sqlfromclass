@@ -2,18 +2,21 @@
 
 namespace Websyspro\SqlFromClass;
 
-use Websyspro\Entity\Shareds\EntityStructure;
-use Websyspro\SqlFromClass\Interfaces\LeftJoin;
+use Websyspro\SqlFromClass\Interfaces\HierarchyJoin;
+use Websyspro\SqlFromClass\Interfaces\EntityJoin;
 use Websyspro\SqlFromClass\Interfaces\ParamIndex;
 use Websyspro\SqlFromClass\Enums\EntityPriority;
 use Websyspro\SqlFromClass\Enums\TokenType;
+use Websyspro\SqlFromClass\Enums\EntityRoot;
+use Websyspro\Entity\Enums\AttributeType;
+use Websyspro\Entity\Shareds\ForeignKey;
 use Websyspro\Entity\Enums\ColumnType;
+use Websyspro\Entity\Shareds\Entity;
 use Websyspro\Commons\Collection;
 use Websyspro\Commons\Util;
 use ReflectionFunction;
 use BackedEnum;
 use UnitEnum;
-use Websyspro\Entity\Shareds\Entity;
 
 /**
  * Converts function body tokens to WHERE clause conditions by analyzing
@@ -28,35 +31,25 @@ class ArrowFnToSql
    * @param ReflectionFunction $reflectionFunction The reflected function to analyze
    * @param Collection $paramters Collection of function parameters
    * @param Collection $static Collection of static values
+   * @param Collection $joins Collection of joins values
    * @param Collection $tokens Collection of body tokens to process
    */
   public function __construct(
     public ReflectionFunction $reflectionFunction,
     public Collection $paramters,
     public Collection $statics,
+    public Collection $joins,
     public Collection $uses,
     public Collection $tokens
   ){}
 
   public function getSql(
-  ): mixed {
-    /* Process entity definitions and priorities */
-    $this->defineField();
-    // $this->defineExports();
-    
-    //return $this;
-    return $this->tokens->mapper( 
-       fn(Token $tokenList ) => $tokenList->value )->joinWithSpace();
-    
-    // return new StrutureSql(
-    //   $this->columns, 
-    //   $this->froms,
-    //   $this->tokens,
-    //   $this->params
-    // );
+  ): ArrowFnToSql {
+    $this->defineStructure();
+    return $this;
   }
 
-  private function defineField(
+  private function defineStructure(
   ): void {
     $this->defineFieldPriority();
     $this->defineFieldEntity();
@@ -64,12 +57,42 @@ class ArrowFnToSql
     $this->defineFieldStatics();
     $this->defineFieldSides();
     $this->defineFieldGroups();
+    $this->defineFieldInJoins();
     $this->defineFieldHierarchy();
     $this->defineFieldValues();
     $this->defineFieldCompactar();
-    $this->defineFieldInJoins();
+    $this->defineFieldCompared();
     $this->defineFieldParameters();
   }
+
+  /**
+   * Maps through the body tokens to identify and assign entity information
+   * to field entity tokens, determining their corresponding entity name
+   * and whether they represent primary entities based on function parameters
+   */
+  private function defineFieldPriority(
+  ): void {
+    /* Map through each token in the body collection */
+    $this->tokens = $this->tokens->mapper(
+      function( Token $token ) {
+        /* Check if current token is a field entity type */
+        if( $token->takenType === TokenType::FieldEntity ) {
+          /* Extract parameter name by removing $ prefix and -> suffix, then find matching entity */
+          $token->entity = $this->paramters->find( fn( Parameter $parameter ) => (
+            $parameter->name === preg_replace( [ "#^\\$#", "#->.*$#" ], "", $token->value )
+          ))->entity;
+
+          /* Convert entity class to readable name format */
+          $token->entityName = $this->entityName( $token->entity );
+          /* Check if this entity is marked as primary */
+          $token->entityPriority = $this->entityPrimary( $token->entity );
+        }
+
+        /* return tokenList */
+        return $token;
+      }
+    );
+  }  
 
   private function useClass(
     string $class
@@ -130,35 +153,6 @@ class ArrowFnToSql
     return Util::classToName( $entity );
   }  
  
-  /**
-   * Maps through the body tokens to identify and assign entity information
-   * to field entity tokens, determining their corresponding entity name
-   * and whether they represent primary entities based on function parameters
-   */
-  private function defineFieldPriority(
-  ): void {
-    /* Map through each token in the body collection */
-    $this->tokens = $this->tokens->mapper(
-      function( Token $token ) {
-        /* Check if current token is a field entity type */
-        if( $token->takenType === TokenType::FieldEntity ) {
-          /* Extract parameter name by removing $ prefix and -> suffix, then find matching entity */
-          $token->entity = $this->paramters->find( fn( Parameter $parameter ) => (
-            $parameter->name === preg_replace( [ "#^\\$#", "#->.*$#" ], "", $token->value )
-          ))->entity;
-
-          /* Convert entity class to readable name format */
-          $token->entityName = $this->entityName( $token->entity );
-          /* Check if this entity is marked as primary */
-          $token->entityPriority = $this->entityPrimary( $token->entity );
-        }
-
-        /* return tokenList */
-        return $token;
-      }
-    );
-  }
-
   /**
    * Transforms field entity tokens by replacing parameter references with entity names
    * Converts tokens like "$parameter->field" to "EntityName.field" format
@@ -319,6 +313,67 @@ class ArrowFnToSql
     );    
   }
 
+  private function decodeEnum(
+    string $enumValue
+  ): string {
+    $isNotEnum = !preg_match( 
+      "#^([\w\\\]+)::(\w+)(?:->(\w+))?$#", 
+      $enumValue, 
+      $enumPaths 
+    );
+
+    if( $isNotEnum ){
+      return $enumValue;
+    }
+
+    $className = $enumPaths[1];
+    $caseName = $enumPaths[2];
+    $property = $enumPaths[3] ?? null;
+
+    if( str_starts_with( $className, "\\" ) === false ){
+      $classNameFull = $this->uses->where(
+        fn( UseClass $useClass ) => (
+          $useClass->class === $className
+        )
+      );
+
+      if( $classNameFull->exist() ){
+        $className = Util::sprintFormat( 
+          "\\%s\\%s", [
+            $classNameFull->first()->path,
+            $classNameFull->first()->class
+          ]
+        );
+      }
+    }
+
+    if( enum_exists($className) === false && class_exists($className) === false) {
+      throw new \Exception("Classe ou Enum {$className} não encontrada.");
+    }          
+
+    $enumCase = constant( 
+      "{$className}::{$caseName}"
+    );
+
+    if( $enumCase instanceof UnitEnum ){
+      if( $property === "name" ){
+        return $enumCase->name;
+      } else
+      if( $property === "value" && $enumCase instanceof BackedEnum ){
+        return $enumCase->value;
+      } else
+      if( $property === null ){
+        return ( $enumCase instanceof BackedEnum ) 
+          ? $enumCase->value 
+          : $enumCase->name;
+      }
+    } else {
+      return $enumCase;
+    }
+    
+    return $enumValue;
+  }
+
   /**
    * Processa tokens de enum values, convertendo referências de enum para seus valores
    * Transforma tokens para o nome do valor do enum
@@ -329,32 +384,9 @@ class ArrowFnToSql
       function( Token $token ) {
         /* Processa apenas tokens de enum value */
         if( $token->takenType === TokenType::EnumValue ){
-          /* Divide a string do enum em classe e item usando :: como separador */
-          if( preg_match( "#->#", $token->value ) === 0){
-            [ $unitEnum, $unitEnumItem ] = preg_split( 
-              "#(::)#", $token->value, -1, PREG_SPLIT_NO_EMPTY 
-            );
-          } else {
-            [ $unitEnum, $unitEnumItem, $unitEnumMethod ] = preg_split( 
-              "#(::)|(->)#", $token->value, -1, PREG_SPLIT_NO_EMPTY 
-            );
-          }
-
-          /* Encontra a classe de use correspondente ao enum */
-          $useClass = $this->useClass( $unitEnum );
-          /* Obtém a constante do enum usando o namespace completo */
-          $unitEnum = constant( $useClass->fullClassFromUnitEnum( $unitEnumItem ));
-          
-          /* Se for uma instância válida de UnitEnum, substitui pelo nome do valor */
-          if( $unitEnum instanceof UnitEnum ){
-            if( $unitEnum instanceof BackedEnum ){
-              if( $unitEnumMethod !== null ){
-                $token->value = $unitEnum->{$unitEnumMethod};
-              }
-            } else {
-              $token->value = $unitEnum->name;
-            }
-          }
+          $token->value = $this->decodeEnum(
+            $token->value
+          );
         }
 
         return $token;
@@ -508,7 +540,99 @@ class ArrowFnToSql
     );
   }
 
-  private function columnsFromEntity(
+  private function defineFieldInJoins(
+    string|null $entity = null,
+    string|null $entityParent = null,
+    array $entityHistory = [],
+    AttributeType $attributeType = AttributeType::oneToOne,
+  ): void {
+    $entityAlreadyAdded = $this->joins->where(
+      fn( HierarchyJoin $hierarchyJoin ) => (
+        $hierarchyJoin->entity === $entity
+      )
+    );
+
+    if( $entityAlreadyAdded->exist() === false ){
+      $parameter = $entity !== null
+        ? $this->paramters->where( 
+            fn( Parameter $parameter ) => (
+              $parameter->entity === $entity
+            ) 
+          )
+        : $this->paramters;
+
+      if( $parameter->exist() === true ){
+        [ $parameter ] = $parameter->all();
+
+        $entityHistory = array_merge( 
+          $entityHistory, [ 
+            $attributeType 
+          ]
+        );
+
+        $entityRoot = Util::sizeArray(
+          Util::where( $entityHistory, 
+          fn( AttributeType $attributeType ) => (
+              $attributeType === AttributeType::oneToMany
+            )
+          )
+        ) === 0 ? EntityRoot::Yes : EntityRoot::No;
+
+        if( $entity !== null ){
+          $entityFromParameter = $this->getEntityFromParam( $parameter->entity );
+          $entityParentFromParameter = $this->getEntityFromParam( $entityParent );
+
+          if( $attributeType === AttributeType::oneToOne ){
+            $foreigns = $entityParentFromParameter->entityStructure->foreigns->where(
+              fn( ForeignKey $foreignKey ) => (
+                $foreignKey->reference->entity->class === $parameter->entity &&
+                $foreignKey->entity->class === $entityParent
+              )
+            );
+          } else if( $attributeType === AttributeType::oneToMany ) {
+            $foreigns = $entityFromParameter->entityStructure->foreigns->where(
+              fn( ForeignKey $foreignKey ) => (
+                $foreignKey->reference->entity->class === $entityParent &&
+                $foreignKey->entity->class === $parameter->entity
+              )
+            );            
+          }
+        }
+        
+        $this->joins->add(
+          new HierarchyJoin(
+            $parameter->entity,
+            $entityHistory,
+            $entityParent,
+            $entityRoot,
+            isset( $foreigns ) && $foreigns->exist() 
+              ? new EntityJoin( $foreigns->first() ) 
+              : null
+          )
+        );
+
+        $parameter->entityStructure->oneToOne->mapper(
+          fn(Entity $entity) => $this->defineFieldInJoins( 
+            $entity->class, 
+            $parameter->entity, 
+            $entityHistory, 
+            AttributeType::oneToOne
+          )
+        );    
+
+        $parameter->entityStructure->oneToMany->mapper(
+          fn(Entity $entity) => $this->defineFieldInJoins( 
+            $entity->class, 
+            $parameter->entity, 
+            $entityHistory,
+            AttributeType::oneToMany
+          )
+        );
+      }  
+    }
+  }  
+
+  private function getEntityFromParam(
     string $entity
   ): object|null {
     $columns = $this->paramters->where( 
@@ -525,7 +649,7 @@ class ArrowFnToSql
     $this->tokens->mapper(
       function( Token $token ) {
         if( $token->takenType === TokenType::FieldValue ){
-          $parameter = $this->columnsFromEntity($token->entity );
+          $parameter = $this->getEntityFromParam( $token->entity );
 
           $hasFieldExist = $parameter->entityStructure->types->get( $token->entityField ) !== null;
           $hasFieldColumnExists = isset( $parameter->entityStructure->types->get( $token->entityField )->instance );
@@ -557,8 +681,8 @@ class ArrowFnToSql
                        && $fieldLeft2->takenType === TokenType::FieldEntity;
 
       if( $hasFieldsEntitys === true ){
-        $field1Columns = $this->columnsFromEntity( $fieldLeft1->entity );
-        $field2Columns = $this->columnsFromEntity( $fieldLeft2->entity );
+        $field1Columns = $this->getEntityFromParam( $fieldLeft1->entity );
+        $field2Columns = $this->getEntityFromParam( $fieldLeft2->entity );
 
         $hasfield1ColumnType = in_array(
           $field1Columns->entityStructure->types->get( $fieldLeft1->entityField )->instance->columnType, [
@@ -617,117 +741,53 @@ class ArrowFnToSql
     $this->tokens = $body;
   }
 
-  private function hasJoin(
-    int $index
-  ): bool {
-    $tokens = $this->tokens->slice(
-      $index, 3
-    );
-
-    if( $tokens->exist() && $tokens->count() === 3 ){
-      [ $fieldLeft1, $compare, $fieldLeft2 ] = $tokens->all();
-
-      return $fieldLeft1->takenType === TokenType::FieldEntity 
-          && $fieldLeft2->takenType === TokenType::FieldEntity
-          && $compare->value === "=";
-    }    
-
-    return false;
-  }
-
-  private function defineFieldInJoinsAdd(
-    int $secundaryIndex,
-    Token $fieldSecundaryIndex,
-    Token $fieldPrimaryIndex,
-    object|null $entityFieldSecundaryIndex,
-    object|null $entityFieldPrimaryIndex
+  private function defineFieldCompared(
   ): void {
-    $tokens = $this->tokens->all();
+    $this->tokens = $this->tokens->mapper(
+      function( Token $token, int $index ) {
+        if( $token->takenType === TokenType::Compare ){
+          $tokenNext = $this->tokens->get( $index + 1);
+          if( $tokenNext !== null && $tokenNext instanceof Token ){
+            $hasLike = strpos( 
+              $tokenNext->value, 
+              "%"
+            ) === true;
 
-    if( $tokens[ $secundaryIndex ] instanceof Token ){
-      $tokens[ $secundaryIndex ]->leftJoin = new LeftJoin(
-        $entityFieldSecundaryIndex->entityStructure->entity->table, 
-        $fieldSecundaryIndex->entityField,
-        $entityFieldPrimaryIndex->entityStructure->entity->table, 
-        $fieldPrimaryIndex->entityField
-      );
-
-      $this->tokens = new Collection( 
-        $tokens
-      );
-    }    
-  }
-
-  private function defineFieldInJoinsApply(
-    int $secundaryIndex, 
-    int $primaryIndex
-  ): void {
-    [ $fieldSecundaryIndex, $fieldPrimaryIndex ] = [ 
-      $this->tokens->get( $secundaryIndex ),
-      $this->tokens->get( $primaryIndex )
-    ];
-
-    if( $fieldPrimaryIndex instanceof Token && $fieldSecundaryIndex instanceof Token ){
-      $entityFieldSecundaryIndex = $this->columnsFromEntity( $fieldSecundaryIndex->entity );
-      $entityFieldPrimaryIndex = $this->columnsFromEntity( $fieldPrimaryIndex->entity );
-
-      if( $entityFieldSecundaryIndex->entityStructure instanceof EntityStructure 
-       && $entityFieldPrimaryIndex->entityStructure instanceof EntityStructure ){
-        if( $entityFieldSecundaryIndex->entityStructure->oneToOne->exist() === true ){
-          $oneToOneList = $entityFieldSecundaryIndex->entityStructure->oneToOne->where(
-            fn( Entity $entity) => $entity->table === $entityFieldPrimaryIndex->entityStructure->entity->table
-          );
-
-          if( $oneToOneList->exist() === true ){
-            $this->defineFieldInJoinsAdd( 
-              $secundaryIndex,
-              $fieldSecundaryIndex,
-              $fieldPrimaryIndex,
-              $entityFieldSecundaryIndex,
-              $entityFieldPrimaryIndex 
+            $hasList = Util::match(
+              "#^\($#", 
+              $tokenNext->value
             );
+            
+            $hasNull = strtoupper(
+              $tokenNext->value
+            ) === "NULL";
+
+            if( $token->value === "=" && $hasLike ){
+              $token->value = "Like";
+            } else
+            if( $token->value === "=" && $hasLike ){
+              $token->value = "Not Like";
+            } else
+            if( $token->value === "=" && $hasList ){
+              $token->value = "In";
+            } else
+            if( $token->value === "<>" && $hasList ){
+              $token->value = "Not In";
+            } else
+            if( $token->value === "=" && $hasNull ){
+              $token->value = "Is";
+            } else
+            if( $token->value === "<>" && $hasNull ){
+              $token->value = "Not";
+            }
           }
         }
 
-        if( $entityFieldPrimaryIndex->entityStructure->oneToOne->exist() === true ){
-          $oneToOneList = $entityFieldPrimaryIndex->entityStructure->oneToOne->where(
-            fn( Entity $entity) => $entity->table === $entityFieldSecundaryIndex->entityStructure->entity->table
-          );
-
-          if( $oneToOneList->exist() === true ){
-            $this->defineFieldInJoinsAdd( 
-              $secundaryIndex,
-              $fieldSecundaryIndex,
-              $fieldPrimaryIndex,
-              $entityFieldSecundaryIndex,
-              $entityFieldPrimaryIndex 
-            );
-          }
-        }
+        return $token;
       }
-    }
+    );  
   }
-
-  private function defineFieldInJoins(
-  ): void {
-    $count = $this->tokens->count();
-    
-    for( $i = 0; $i < $count; $i++ ){
-      if( $this->hasJoin( $i ) === true ){
-        $field1 = $this->tokens->get( $i );
-        $field2 = $this->tokens->get( $i + 2 );
-
-        
-        if( $field1 instanceof Token && $field1->entityPriority === EntityPriority::Secundary ){
-          $this->defineFieldInJoinsApply( $i, $i + 2 );
-        } else
-        if( $field2 instanceof Token && $field2->entityPriority === EntityPriority::Secundary ){
-          $this->defineFieldInJoinsApply( $i + 2, $i );
-        }
-      }
-    }
-  }  
-
+  
   private function defineFieldParameters(): void {
     $this->tokens = $this->tokens->mapper(
       function( Token $token, int $index ) {
@@ -752,7 +812,6 @@ class ArrowFnToSql
           );
 
           $token->value = $this->params->last()->getAlias();
-
         }
 
         return $token;
