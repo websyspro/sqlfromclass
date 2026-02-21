@@ -38,15 +38,12 @@ function Repository(
 $start = microtime(true);
 
 $where = Repository( 6 )
-  ->getSql();
+  ->getStructure();
 
-$executionTime = (microtime(true) - $start) * 1000;
+//$sqlList = $where->tokens->mapper(fn( Token $t ) => $t->value );  
+//print_r( $sqlList->joinWithSpace());
 
-$sqlList = $where->tokens->mapper(fn( Token $t ) => $t->value );  
-print_r( $sqlList->joinWithSpace());
-echo "\nTempo de execução: " . number_format($executionTime, 4) . " ms\n";
-
-//print_r( $where->tokens );
+print_r( $where->tokens );
 
 
 // Sintaxe PHP,Valor Detectado,Tradução SQL,Exemplo

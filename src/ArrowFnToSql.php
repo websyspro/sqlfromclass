@@ -43,7 +43,7 @@ class ArrowFnToSql
     public Collection $tokens
   ){}
 
-  public function getSql(
+  public function getStructure(
   ): ArrowFnToSql {
     $this->defineStructure();
     return $this;
@@ -59,6 +59,7 @@ class ArrowFnToSql
     $this->defineFieldGroups();
     $this->defineFieldInJoins();
     $this->defineFieldHierarchy();
+    $this->defineFieldRoot();
     $this->defineFieldValues();
     $this->defineFieldCompactar();
     $this->defineFieldCompared();
@@ -256,7 +257,21 @@ class ArrowFnToSql
   ): bool {
     /* Check if token exists and is a FieldValue type */
     return isset( $token ) && $token->takenType === TokenType::FieldValue;
-  }  
+  }
+
+  private function getEntityRoot(
+    string $entity
+  ): EntityRoot {
+    $join = $this->joins->get( 
+      $entity
+    );
+
+    if( $join instanceof HierarchyJoin && $join !== null ){
+      return $join->entityRoot;
+    }
+
+    return EntityRoot::No;
+  }
 
   /**
    * Assigns entity metadata to field value tokens based on adjacent comparison tokens
@@ -269,7 +284,7 @@ class ArrowFnToSql
       function( Token $token, int $i ) {
         /* Check if current token is a field value type */
         $hasFieldProps = $token->takenType === TokenType::FieldValue 
-                      || $token->takenType === TokenType::EnumValue 
+                      || $token->takenType === TokenType::FieldEnum
                       || $token->takenType === TokenType::FieldStatic;
 
         /* Process only field value tokens */
@@ -306,6 +321,21 @@ class ArrowFnToSql
               }
             }
           }
+        }
+
+        return $token;
+      }
+    );    
+  }
+
+  private function defineFieldRoot(
+  ): void {
+    $this->tokens = $this->tokens->mapper(
+      function( Token $token ) {
+        if( isset( $token->entity ) && $token->entity !== null ){
+          $token->entityRoot = $this->getEntityRoot( 
+            $token->entity
+          );
         }
 
         return $token;
@@ -383,7 +413,7 @@ class ArrowFnToSql
     $this->tokens = $this->tokens->mapper(
       function( Token $token ) {
         /* Processa apenas tokens de enum value */
-        if( $token->takenType === TokenType::EnumValue ){
+        if( $token->takenType === TokenType::FieldEnum ){
           $token->value = $this->decodeEnum(
             $token->value
           );
@@ -608,7 +638,7 @@ class ArrowFnToSql
             isset( $foreigns ) && $foreigns->exist() 
               ? new EntityJoin( $foreigns->first() ) 
               : null
-          )
+          ), $parameter->entity
         );
 
         $parameter->entityStructure->oneToOne->mapper(
@@ -795,7 +825,7 @@ class ArrowFnToSql
           $token->takenType, [ 
             TokenType::FieldStatic,
             TokenType::FieldValue,
-            TokenType::EnumValue
+            TokenType::FieldValue
           ]
         );
 

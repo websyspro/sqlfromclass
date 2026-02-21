@@ -7,7 +7,7 @@ enum TokenType
   case FieldEntity;
   case FieldStatic;
   case FieldValue;
-  case EnumValue;
+  case FieldEnum;
   case Compare;
   case Logical;
   case StartParent;

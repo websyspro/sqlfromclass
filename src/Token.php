@@ -4,8 +4,8 @@ namespace Websyspro\SqlFromClass;
 
 use Websyspro\Commons\Collection;
 use Websyspro\SqlFromClass\Enums\EntityPriority;
+use Websyspro\SqlFromClass\Enums\EntityRoot;
 use Websyspro\SqlFromClass\Enums\TokenType;
-use Websyspro\SqlFromClass\Interfaces\LeftJoin;
 
 class Token
 {
@@ -15,7 +15,7 @@ class Token
     public string|null $entity = null,
     public string|null $entityName = null,
     public string|null $entityField = null,
-    public LeftJoin|null $leftJoin = null,
-    public EntityPriority|null $entityPriority = null,
+    public EntityRoot|null $entityRoot = null,
+    public EntityPriority|null $entityPriority = null
   ){}
 }

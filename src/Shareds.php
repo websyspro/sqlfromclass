@@ -97,7 +97,7 @@ class Shareds
       return TokenType::Logical;
     }else
     if( Util::match( "#^[a-zA-Z]{1}.*::.*(->(?:name|value))?$#", $token )){
-      return TokenType::EnumValue;
+      return TokenType::FieldEnum;
     } else
     if(Util::match("#^,$#", $token)){
       return TokenType::FieldIgnore;
