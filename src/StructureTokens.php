@@ -776,7 +776,7 @@ class StructureTokens
         );
 
         $hasComparesInverted = $compare1->value === CompareType::GREATER_EQUAL->value
-                            && $compare2->value === CompareType::LESS_EQUAL;
+                            && $compare2->value === CompareType::LESS_EQUAL->value;
         
         $hasLogicalAnd = strtolower( 
           $logical->value 
