@@ -239,14 +239,14 @@ class Shareds
    * 
    * Método principal que orquestra a extração de todas as informações da função
    * 
-   * @param callable $arrowFnToString Arrow function a ser processada
-   * @return ArrowFnToSql Objeto contendo toda a estrutura da função
+   * @param callable $fn Arrow function a ser processada
+   * @return StructureTokens Objeto contendo toda a estrutura da função
    */
-  public static function createArrowFnToSql(
+  public static function createStructure(
     callable $fn
-  ): ArrowFnToStructure {
+  ): StructureTokens {
     $reflectionFunction = new ReflectionFunction( $fn );
-    return new ArrowFnToStructure(
+    return new StructureTokens(
       $reflectionFunction,
       Shareds::createParametersFromArrowFn( $reflectionFunction ),
       Shareds::createStaticFromArrowFn( $reflectionFunction ),

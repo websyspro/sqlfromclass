@@ -24,7 +24,7 @@ use UnitEnum;
  * Converts function body tokens to WHERE clause conditions by analyzing
  * field entities and determining their relationships to function parameters
  */
-class ArrowFnToStructure
+class StructureTokens
 {
   public Collection|null $params = null;
 
@@ -48,10 +48,10 @@ class ArrowFnToStructure
   /**
    * Obtém a estrutura processada da arrow function
    * 
-   * @return ArrowFnToStructure Retorna a própria instância após processar a estrutura
+   * @return StructureTokens Retorna a própria instância após processar a estrutura
    */
   public function getStructure(
-  ): ArrowFnToStructure {
+  ): StructureTokens {
     $this->defineStructure();
     return $this;
   }
