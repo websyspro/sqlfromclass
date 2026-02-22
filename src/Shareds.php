@@ -10,12 +10,18 @@ use ReflectionParameter;
 use ReflectionFunction;
 
 /**
- * Classe utilitária para conversão de arrow functions em objetos FnBody
+ * Classe utilitária para conversão de arrow functions em estruturas SQL
+ * 
+ * Responsável por extrair e processar informações de arrow functions,
+ * incluindo parâmetros, variáveis estáticas, imports e tokens do corpo da função
  */
 class Shareds
 {
   /**
    * Extrai parâmetros de uma arrow function
+   * 
+   * @param ReflectionFunction $reflectionFunction Função refletida
+   * @return Collection Coleção de objetos Parameter
    */
   private static function createParametersFromArrowFn(
     ReflectionFunction $reflectionFunction
@@ -39,7 +45,10 @@ class Shareds
   }
 
   /**
-   * Extrai variáveis estáticas de uma arrow function
+   * Extrai variáveis estáticas capturadas pela arrow function
+   * 
+   * @param ReflectionFunction $reflectionFunction Função refletida
+   * @return Collection Coleção de variáveis estáticas
    */
   private static function createStaticFromArrowFn(
     ReflectionFunction $reflectionFunction
@@ -49,6 +58,12 @@ class Shareds
     );
   }
 
+  /**
+   * Extrai declarações de use do arquivo onde a função está definida
+   * 
+   * @param ReflectionFunction $reflectionFunction Função refletida
+   * @return Collection Coleção de objetos UseClass
+   */
   private static function createUsesFromArrowFn(
     ReflectionFunction $reflectionFunction
   ): Collection {
@@ -69,6 +84,12 @@ class Shareds
     );
   }
 
+  /**
+   * Inicializa coleção vazia de JOINs
+   * 
+   * @param ReflectionFunction $reflectionFunction Função refletida
+   * @return Collection Coleção vazia de JOINs
+   */
   private static function createJoinsFromArrowFn(
     ReflectionFunction $reflectionFunction
   ): Collection {
@@ -76,7 +97,10 @@ class Shareds
   }  
 
   /**
-   * Converts a string token into its corresponding Token enum type
+   * Converte uma string token em seu tipo TokenType correspondente
+   * 
+   * @param string $token String do token a ser classificado
+   * @return TokenType Tipo do token identificado
    */
   private static function convertToken(
     string $token
@@ -112,6 +136,12 @@ class Shareds
     return TokenType::FieldValue;
   }
 
+  /**
+   * Cria um objeto Token a partir de uma string
+   * 
+   * @param string $token String do token
+   * @return Token Objeto Token criado
+   */
   private static function tokenParse(
     string $token
   ): Token {
@@ -122,7 +152,12 @@ class Shareds
   }
 
   /**
-   * Extrai o corpo de uma arrow function do código fonte
+   * Extrai e tokeniza o corpo de uma arrow function
+   * 
+   * Lê o código fonte da função, normaliza e divide em tokens
+   * 
+   * @param ReflectionFunction $reflectionFunction Função refletida
+   * @return Collection Coleção de objetos Token
    */
   private static function createBodyFromArrowFn(
     ReflectionFunction $reflectionFunction
@@ -131,6 +166,7 @@ class Shareds
       file( $reflectionFunction->getFileName())
     );
 
+    // Normaliza o código fonte removendo formatação e convertendo operadores
     $sourceString = preg_replace(
       [
         "#\r#",
@@ -152,23 +188,23 @@ class Shareds
         "#false#"
       ], 
       [
-        "",     // "#\r#"
-        " ",    // "#\n\s*#"
-        "",     // "#^.*\\{.*return\s*#"
-        "",     // "#\s*;\s*\\}\s*#"
-        "fn(",  // "#^.*(fn|function)\s*\(#"
-        "",     // "#\s*\);\s*$#"
-        "",     // "#^.*?\)\s*=>\s*#s"
-        "(",    // "#\\[\s*#"
-        ")",    // "#\s*\\]#"
-        ",",    // "#,\s*#s"]
-        "'",    // "#\"#"
-        "And",  // "#&&#"
-        "Or",   // "#\|\|#"
-        "<>",   // "#(!==|!=)#" 
-        "=",    // "#^(===|==|=)$#",
-        "1",    // "#true#"
-        "0"     // "#false#" 
+        "",     // Remove carriage return
+        " ",    // Remove quebras de linha
+        "",     // Remove abertura de função
+        "",     // Remove fechamento de função
+        "fn(",  // Normaliza declaração de função
+        "",     // Remove fechamento de parênteses
+        "",     // Remove arrow function
+        "(",    // Converte colchetes em parênteses
+        ")",    // Converte colchetes em parênteses
+        ",",    // Normaliza vírgulas
+        "'",    // Converte aspas duplas em simples
+        "And",  // Converte && em And
+        "Or",   // Converte || em Or
+        "<>",   // Normaliza operador diferente
+        "=",    // Normaliza operador igual
+        "1",    // Converte true em 1
+        "0"     // Converte false em 0
       ],  
       $sourceArrowFN->slice(
         $reflectionFunction->getStartLine() - 1,
@@ -176,13 +212,7 @@ class Shareds
       )->toString()
     );
 
-    // Original
-    // preg_match_all(
-    //    "#'[^']*'|\"[^\"]*\"|\\S+#",
-    //   $sourceString,
-    //   $sourceCollectionTokens
-    // );
-
+    // Extrai tokens usando regex
     preg_match_all(
         "#'[^']*'|\"[^\"]*\"|\\$?[\\w\\\\-]+(?:->|::)[\\w\\\\-]+|\\$?[\\w\\\\-]+|>=|<=|<>|[<>=!]+|\\(|\\)|,|\\S#",
         $sourceString,
@@ -205,7 +235,12 @@ class Shareds
   }
 
   /**
-   * Converte uma arrow function em objeto FnBody
+   * Converte uma arrow function em objeto ArrowFnToSql
+   * 
+   * Método principal que orquestra a extração de todas as informações da função
+   * 
+   * @param callable $arrowFnToString Arrow function a ser processada
+   * @return ArrowFnToSql Objeto contendo toda a estrutura da função
    */
   public static function createTokens(
     callable $arrowFnToString

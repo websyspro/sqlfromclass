@@ -4,7 +4,6 @@ use Websyspro\Test\Entitys\DocumentEntity;
 use Websyspro\SqlFromClass\ArrowFnToSql;
 use Websyspro\Test\Entitys\BoxEntity;
 use Websyspro\SqlFromClass\Shareds;
-use Websyspro\SqlFromClass\Token;
 use Websyspro\Test\Entitys\DocumentItemEntity;
 use Websyspro\Test\Entitys\OperatorEntity;
 use Websyspro\Test\Enums\DocumentState;
@@ -28,31 +27,27 @@ function Repository(
       $document->CreatedAt <= '15/04/2022' &&
       $document->Observations === "Documento cancelado" &&
       $document->Actived === null &&
-      $document->State === [ DocumentState::Finalizado, DocumentState::Cancelado ]
+      $document->State === [ 
+        DocumentState::Finalizado, 
+        DocumentState::Cancelado
+      ]
     )
   );
 }
 
 
 
-$start = microtime(true);
-
+$start = microtime( true );
 $where = Repository( 6 )
   ->getStructure();
 
-//$sqlList = $where->tokens->mapper(fn( Token $t ) => $t->value );  
-//print_r( $sqlList->joinWithSpace());
+print_r($where->tokens);
 
-print_r( $where->tokens );
+$end = microtime( true );
+$duration = ( $end - $start ) * 1000;
 
-
-// Sintaxe PHP,Valor Detectado,Tradução SQL,Exemplo
-// ===,String com %,LIKE,col LIKE '%Teste%'
-// !==,String com %,NOT LIKE,col NOT LIKE '%Teste%'
-// ===,"Array [1, 2, 3]",IN,"col IN (1, 2, 3)"
-// !==,"Array [1, 2, 3]",NOT IN,"col NOT IN (1, 2, 3)"
-// ===,null,IS NULL,col IS NULL
-// !==,null,IS NOT NULL,col IS NOT NULL
+//print_r( $where->tokens );
+echo "\nTempo de execução: " . $duration . " segundos\n";
 
 /*
 Exemplo de Erro:

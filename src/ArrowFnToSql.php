@@ -6,8 +6,10 @@ use Websyspro\SqlFromClass\Interfaces\HierarchyJoin;
 use Websyspro\SqlFromClass\Interfaces\EntityJoin;
 use Websyspro\SqlFromClass\Interfaces\ParamIndex;
 use Websyspro\SqlFromClass\Enums\EntityPriority;
-use Websyspro\SqlFromClass\Enums\TokenType;
+use Websyspro\SqlFromClass\Enums\CompareType;
+use Websyspro\SqlFromClass\Enums\LogicalType;
 use Websyspro\SqlFromClass\Enums\EntityRoot;
+use Websyspro\SqlFromClass\Enums\TokenType;
 use Websyspro\Entity\Enums\AttributeType;
 use Websyspro\Entity\Shareds\ForeignKey;
 use Websyspro\Entity\Enums\ColumnType;
@@ -43,12 +45,23 @@ class ArrowFnToSql
     public Collection $tokens
   ){}
 
+  /**
+   * Obtém a estrutura processada da arrow function
+   * 
+   * @return ArrowFnToSql Retorna a própria instância após processar a estrutura
+   */
   public function getStructure(
   ): ArrowFnToSql {
     $this->defineStructure();
     return $this;
   }
 
+  /**
+   * Executa todas as etapas de processamento da estrutura SQL
+   * 
+   * Orquestra a execução sequencial de todos os métodos de processamento
+   * para transformar os tokens em uma estrutura SQL válida
+   */
   private function defineStructure(
   ): void {
     $this->defineFieldPriority();
@@ -79,9 +92,14 @@ class ArrowFnToSql
         /* Check if current token is a field entity type */
         if( $token->takenType === TokenType::FieldEntity ) {
           /* Extract parameter name by removing $ prefix and -> suffix, then find matching entity */
-          $token->entity = $this->paramters->find( fn( Parameter $parameter ) => (
-            $parameter->name === preg_replace( [ "#^\\$#", "#->.*$#" ], "", $token->value )
-          ))->entity;
+          $token->entity = $this->paramters->find( 
+            fn( Parameter $parameter ) => (
+              $parameter->name === preg_replace( 
+                [ "#^\\$#", "#->.*$#" ], 
+                "", $token->value
+              )
+            )
+          )->entity;
 
           /* Convert entity class to readable name format */
           $token->entityName = $this->entityName( $token->entity );
@@ -95,27 +113,6 @@ class ArrowFnToSql
     );
   }  
 
-  private function useClass(
-    string $class
-  ): UseClass {
-    if( Util::match( "#^.*\\\.*$#", $class )){
-      $classPaths = new Collection(
-        preg_split(
-          "#\\\#",
-          $class, 
-          -1, 
-          PREG_SPLIT_NO_EMPTY
-        )
-      );
-
-      $class = $classPaths->last();
-    }
-
-    return $this->uses->find(
-      fn(UseClass $useClass) => $useClass->isClass($class) 
-    );
-  }
-
   /**
    * Determines the priority level of an entity based on function parameters
    * @param string $entity The entity to check priority for
@@ -125,13 +122,13 @@ class ArrowFnToSql
     string $entity
   ): EntityPriority {
     /* Return secondary priority if no parameters exist */
-    if($this->paramters->exist() === false){
+    if( $this->paramters->exist() === false ){
       return EntityPriority::Secundary;
     }
 
     /* Get the first parameter from the collection */
     $parameterFirst = $this->paramters->first();
-    if($parameterFirst instanceof Parameter){
+    if( $parameterFirst instanceof Parameter ){
       /* Compare entity with first parameter's entity to determine priority */
       return $parameterFirst->entity === $entity 
         ? EntityPriority::Primary 
@@ -202,6 +199,12 @@ class ArrowFnToSql
     return isset( $token ) && $token->takenType === TokenType::FieldEntity;
   }
 
+  /**
+   * Verifica se um token é do tipo FieldEntity com prioridade Primary
+   * 
+   * @param Token|null $token Token a ser verificado
+   * @return bool True se for FieldEntity e Primary, false caso contrário
+   */
   private function fieldIsEntityIsPriority(
     Token|null $token
   ): bool {
@@ -223,6 +226,12 @@ class ArrowFnToSql
     return isset( $token ) && $token->takenType === TokenType::Compare;
   }
 
+  /**
+   * Verifica se um token é do tipo operador lógico
+   * 
+   * @param Token|null $token Token a ser verificado
+   * @return bool True se for operador lógico (AND/OR), false caso contrário
+   */
   private function fieldIsLogical(
     Token|null $token
   ): bool {
@@ -259,6 +268,12 @@ class ArrowFnToSql
     return isset( $token ) && $token->takenType === TokenType::FieldValue;
   }
 
+  /**
+   * Obtém o status de raiz de uma entidade
+   * 
+   * @param string $entity Nome da entidade
+   * @return EntityRoot Status de raiz da entidade
+   */
   private function getEntityRoot(
     string $entity
   ): EntityRoot {
@@ -328,6 +343,9 @@ class ArrowFnToSql
     );    
   }
 
+  /**
+   * Define o status de raiz para cada token com entidade associada
+   */
   private function defineFieldRoot(
   ): void {
     $this->tokens = $this->tokens->mapper(
@@ -343,6 +361,12 @@ class ArrowFnToSql
     );    
   }
 
+  /**
+   * Decodifica referências de enum para seus valores
+   * 
+   * @param string $enumValue String contendo referência ao enum (ex: Status::Active)
+   * @return string Valor do enum ou string original se não for enum
+   */
   private function decodeEnum(
     string $enumValue
   ): string {
@@ -405,8 +429,7 @@ class ArrowFnToSql
   }
 
   /**
-   * Processa tokens de enum values, convertendo referências de enum para seus valores
-   * Transforma tokens para o nome do valor do enum
+   * Processa tokens de enum, convertendo referências para seus valores
    */
   private function defineFieldEnums(
   ): void {
@@ -451,8 +474,7 @@ class ArrowFnToSql
   }
 
   /**
-   * Processes field static tokens by replacing static variable references with their values
-   * Transforms tokens containing static variables into their resolved string values
+   * Processa field static tokens substituindo variáveis estáticas por seus valores
    */
   public function defineFieldStatics(
   ): void {
@@ -473,8 +495,10 @@ class ArrowFnToSql
   }
 
   /**
-   * Normalizes comparison order by ensuring field entities are always on the left side
-   * Transforms "Value Compare Entity" patterns to "Entity Compare Value" and inverts operators
+   * Normaliza ordem das comparações garantindo que entidades fiquem à esquerda
+   * 
+   * Transforma padrões "Valor Compare Entidade" em "Entidade Compare Valor"
+   * e inverte operadores quando necessário
    */
   public function defineFieldSides(
   ): void {
@@ -517,8 +541,10 @@ class ArrowFnToSql
   }
 
   /**
-   * Groups comparisons of the same field together for optimization
-   * Moves duplicate field comparisons to be adjacent, facilitating pattern detection like BETWEEN
+   * Agrupa comparações do mesmo campo para otimização
+   * 
+   * Move comparações duplicadas de campos para ficarem adjacentes,
+   * facilitando detecção de padrões como BETWEEN
    */
   public function defineFieldGroups(  
   ): void {
@@ -570,6 +596,14 @@ class ArrowFnToSql
     );
   }
 
+  /**
+   * Constrói hierarquia de JOINs entre entidades recursivamente
+   * 
+   * @param string|null $entity Entidade atual
+   * @param string|null $entityParent Entidade pai
+   * @param array $entityHistory Histórico de tipos de relacionamento
+   * @param AttributeType $attributeType Tipo de relacionamento (oneToOne/oneToMany)
+   */
   private function defineFieldInJoins(
     string|null $entity = null,
     string|null $entityParent = null,
@@ -662,6 +696,12 @@ class ArrowFnToSql
     }
   }  
 
+  /**
+   * Obtém o parâmetro associado a uma entidade
+   * 
+   * @param string $entity Nome da entidade
+   * @return object|null Parâmetro encontrado ou null
+   */
   private function getEntityFromParam(
     string $entity
   ): object|null {
@@ -674,6 +714,9 @@ class ArrowFnToSql
     return $columns->exist() ? $columns->first() : null;
   }
 
+  /**
+   * Codifica valores de campo de acordo com o tipo da coluna
+   */
   private function defineFieldValues(
   ): void {
     $this->tokens->mapper(
@@ -695,6 +738,12 @@ class ArrowFnToSql
     );
   }
 
+  /**
+   * Verifica se existe um padrão BETWEEN a partir do índice especificado
+   * 
+   * @param int $index Índice inicial para verificação
+   * @return bool True se encontrar padrão BETWEEN válido
+   */
   private function hasBetween(
     int $index
   ): bool {
@@ -726,12 +775,12 @@ class ArrowFnToSql
           ]
         );
 
-        $hasComparesInverted = $compare1->value === ">=" 
-                            && $compare2->value === "<=";
+        $hasComparesInverted = $compare1->value === CompareType::GREATER_EQUAL->value
+                            && $compare2->value === CompareType::LESS_EQUAL;
         
         $hasLogicalAnd = strtolower( 
           $logical->value 
-        ) === "and";
+        ) === LogicalType::And->value;
 
         return $fieldLeft1->entityName === $fieldLeft2->entityName 
             && $fieldLeft1->entityField === $fieldLeft2->entityField
@@ -745,6 +794,11 @@ class ArrowFnToSql
     return false;
   }
 
+  /**
+   * Compacta padrões de comparação em operadores SQL especiais
+   * 
+   * Identifica e converte padrões como "field >= x AND field <= y" em BETWEEN
+   */
   private function defineFieldCompactar(
   ): void {
     $items = $this->tokens->all();
@@ -771,6 +825,11 @@ class ArrowFnToSql
     $this->tokens = $body;
   }
 
+  /**
+   * Ajusta operadores de comparação baseado no tipo de valor
+   * 
+   * Converte operadores simples em operadores especiais como LIKE, IN, IS NULL, etc
+   */
   private function defineFieldCompared(
   ): void {
     $this->tokens = $this->tokens->mapper(
@@ -792,22 +851,22 @@ class ArrowFnToSql
               $tokenNext->value
             ) === "NULL";
 
-            if( $token->value === "=" && $hasLike ){
+            if( $token->value === CompareType::EQUALS->value && $hasLike ){
               $token->value = "Like";
             } else
-            if( $token->value === "=" && $hasLike ){
+            if( $token->value === CompareType::EQUALS->value && $hasLike ){
               $token->value = "Not Like";
             } else
-            if( $token->value === "=" && $hasList ){
+            if( $token->value === CompareType::EQUALS->value && $hasList ){
               $token->value = "In";
             } else
-            if( $token->value === "<>" && $hasList ){
+            if( $token->value === CompareType::NOT_EQUAL->value && $hasList ){
               $token->value = "Not In";
             } else
-            if( $token->value === "=" && $hasNull ){
+            if( $token->value === CompareType::EQUALS->value && $hasNull ){
               $token->value = "Is";
             } else
-            if( $token->value === "<>" && $hasNull ){
+            if( $token->value === CompareType::NOT_EQUAL->value && $hasNull ){
               $token->value = "Not";
             }
           }
@@ -818,6 +877,12 @@ class ArrowFnToSql
     );  
   }
   
+  /**
+   * Extrai parâmetros dos tokens e cria aliases para substituição
+   * 
+   * Identifica valores que devem ser parametrizados e cria referências
+   * para substituição posterior na query SQL
+   */
   private function defineFieldParameters(): void {
     $this->tokens = $this->tokens->mapper(
       function( Token $token, int $index ) {

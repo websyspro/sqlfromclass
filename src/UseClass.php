@@ -6,10 +6,10 @@ use Websyspro\Commons\Collection;
 use Websyspro\Commons\Util;
 
 /**
- * Classe responsável por processar e analisar declarações de use class
+ * Classe responsável por processar e analisar declarações de use
  * 
- * Esta classe recebe uma string contendo uma declaração de use (ex: "use App\Models\User;")
- * e extrai o nome da classe e o caminho do namespace para uso posterior.
+ * Recebe uma string contendo uma declaração de use (ex: "use App\\Models\\User;")
+ * e extrai o nome da classe e o caminho do namespace para uso posterior
  */
 class UseClass
 {
@@ -20,9 +20,7 @@ class UseClass
   public string $path;
 
   /**
-   * Construtor que inicializa a classe com uma string de use
-   * 
-   * @param string $useClass String contendo a declaração de use (ex: "use App\Models\User;")
+   * @param string $useClass String contendo a declaração de use (ex: "use App\\Models\\User;")
    */
   public function __construct(
     private string $useClass
@@ -43,9 +41,10 @@ class UseClass
   }
 
   /**
-   * Retorna o namespace completo da classe (caminho + nome da classe)
+   * Retorna o namespace completo de um enum
    * 
-   * @return string Namespace completo no formato "Path\ClassName"
+   * @param string $unitEnum Nome do case do enum
+   * @return string Namespace completo no formato "Path\\ClassName::CaseName"
    */
   public function fullClassFromUnitEnum(
     string $unitEnum
@@ -58,7 +57,7 @@ class UseClass
   }
 
   /**
-   * Processa a string de use class para extrair o nome da classe e o caminho do namespace
+   * Processa a string de use para extrair o nome da classe e o caminho do namespace
    */
   private function defineUseClass(
   ): void {
