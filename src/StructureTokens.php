@@ -612,7 +612,7 @@ class StructureTokens
   ): void {
     $entityAlreadyAdded = $this->joins->where(
       fn( HierarchyJoin $hierarchyJoin ) => (
-        $hierarchyJoin->entity === $entity
+        $hierarchyJoin->entity->class === $entity
       )
     );
 
@@ -665,7 +665,7 @@ class StructureTokens
         
         $this->joins->add(
           new HierarchyJoin(
-            $parameter->entity,
+            new Entity( $parameter->entity ),
             $entityHistory,
             $entityParent,
             $entityRoot,
