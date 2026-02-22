@@ -235,20 +235,17 @@ class Shareds
   }
 
   /**
-   * Converte uma arrow function em objeto ArrowFnToSql
+   * Converte uma arrow function em objeto createArrowFnToSql
    * 
    * Método principal que orquestra a extração de todas as informações da função
    * 
    * @param callable $arrowFnToString Arrow function a ser processada
    * @return ArrowFnToSql Objeto contendo toda a estrutura da função
    */
-  public static function createTokens(
-    callable $arrowFnToString
+  public static function createArrowFnToSql(
+    callable $fn
   ): ArrowFnToSql {
-    $reflectionFunction = new ReflectionFunction(
-      $arrowFnToString
-    );
-
+    $reflectionFunction = new ReflectionFunction( $fn );
     return new ArrowFnToSql(
       $reflectionFunction,
       Shareds::createParametersFromArrowFn( $reflectionFunction ),
