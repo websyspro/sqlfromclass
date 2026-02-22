@@ -890,7 +890,7 @@ class StructureTokens
           $token->takenType, [ 
             TokenType::FieldStatic,
             TokenType::FieldValue,
-            TokenType::FieldValue
+            TokenType::FieldEnum
           ]
         );
 
