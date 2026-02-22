@@ -244,9 +244,9 @@ class Shareds
    */
   public static function createArrowFnToSql(
     callable $fn
-  ): ArrowFnToSql {
+  ): ArrowFnToStructure {
     $reflectionFunction = new ReflectionFunction( $fn );
-    return new ArrowFnToSql(
+    return new ArrowFnToStructure(
       $reflectionFunction,
       Shareds::createParametersFromArrowFn( $reflectionFunction ),
       Shareds::createStaticFromArrowFn( $reflectionFunction ),
